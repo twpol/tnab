@@ -20,6 +20,9 @@ foreach (var arg in args)
         case "benchmark":
             await Benchmark(arg);
             break;
+        case "crashtest":
+            await CrashTest(arg);
+            break;
         case "print-dom":
             await PrintDom(arg);
             break;
@@ -49,6 +52,7 @@ if (action == "")
     Console.WriteLine();
     Console.WriteLine("Actions:");
     Console.WriteLine("  /benchmark            Benchmark the HTML parser with the specified URLs");
+    Console.WriteLine("  /crashtest            Crash test the HTML parser with the specified URLs");
     Console.WriteLine("  /print-dom            Print the HTML tree from the specified URLs");
     Console.WriteLine("  /print-nodes          Print the HTML nodes from the specified URLs");
     Console.WriteLine("  /print-tokens         Print the HTML tokens from the specified URLs");
@@ -90,9 +94,15 @@ async Task Benchmark(string url)
     Console.WriteLine("Parse:   {0:F3} ms", (timeDone - timeParseStart).TotalMilliseconds / benchmarkCount);
 }
 
+async Task CrashTest(string url)
+{
+    var stream = await NetworkManager.Get(new Uri(url));
+    var htmlParser = new HtmlParser(stream);
+    htmlParser.Parse();
+}
+
 async Task PrintDom(string url)
 {
-    var network = new NetworkManager();
     var htmlParser = new HtmlParser(await NetworkManager.Get(new Uri(url)));
     htmlParser.Parse();
     PrintNode(0, htmlParser.Root);
@@ -100,14 +110,12 @@ async Task PrintDom(string url)
 
 async Task PrintNodes(string url)
 {
-    var network = new NetworkManager();
     var htmlNodes = new HtmlParser(await NetworkManager.Get(new Uri(url)));
     foreach (var node in htmlNodes.GetNodes()) Console.WriteLine(node);
 }
 
 async Task PrintTokens(string url)
 {
-    var network = new NetworkManager();
     var htmlTokens = new HtmlTokeniser(await NetworkManager.Get(new Uri(url)));
     foreach (var token in htmlTokens.GetTokens()) Console.WriteLine(token);
 }
