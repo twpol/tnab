@@ -20,6 +20,10 @@ foreach (var arg in args)
         case "benchmark":
             await Benchmark(arg);
             break;
+        case "crash-test":
+        case "crashtest":
+            await CrashTest(arg);
+            break;
         case "print-dom":
             await PrintDom(arg);
             break;
@@ -49,9 +53,13 @@ if (action == "")
     Console.WriteLine();
     Console.WriteLine("Actions:");
     Console.WriteLine("  /benchmark            Benchmark the HTML parser with the specified URLs");
+    Console.WriteLine("  /crash-test           Crash test the HTML parser with the specified URLs");
     Console.WriteLine("  /print-dom            Print the HTML tree from the specified URLs");
     Console.WriteLine("  /print-nodes          Print the HTML nodes from the specified URLs");
     Console.WriteLine("  /print-tokens         Print the HTML tokens from the specified URLs");
+    Console.WriteLine();
+    Console.WriteLine("Aliases for Web Platform Tests:");
+    Console.WriteLine("  /crashtest            --> /crash-test");
     Console.WriteLine();
     Console.WriteLine("Arguments:");
     Console.WriteLine("  <URL>                 URL to load");
@@ -88,6 +96,13 @@ async Task Benchmark(string url)
     Console.WriteLine("Tokens:  {0:F3} ms", (timeNodesStart - timeTokensStart).TotalMilliseconds / benchmarkCount);
     Console.WriteLine("Nodes:   {0:F3} ms", (timeParseStart - timeNodesStart).TotalMilliseconds / benchmarkCount);
     Console.WriteLine("Parse:   {0:F3} ms", (timeDone - timeParseStart).TotalMilliseconds / benchmarkCount);
+}
+
+async Task CrashTest(string url)
+{
+    var stream = await NetworkManager.Get(new Uri(url));
+    var htmlParser = new HtmlParser(stream);
+    htmlParser.Parse();
 }
 
 async Task PrintDom(string url)
