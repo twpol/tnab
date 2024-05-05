@@ -1,0 +1,40 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.0.31903.59
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TNAB.Cli", "TNAB.Cli\TNAB.Cli.csproj", "{B0DF5B0D-C5A4-4C59-8C7C-6CA4DC618EBB}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TNAB.Network", "TNAB.Network\TNAB.Network.csproj", "{F94A9C81-D2F3-487B-AE78-04EA56846F9A}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TNAB.Parsers", "TNAB.Parsers\TNAB.Parsers.csproj", "{87C9D40F-393B-44DD-B2B7-6EC61B13D42E}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TNAB.Streams", "TNAB.Streams\TNAB.Streams.csproj", "{C990B56A-EC15-4834-BC1D-B51D86A9AC36}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{B0DF5B0D-C5A4-4C59-8C7C-6CA4DC618EBB}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{B0DF5B0D-C5A4-4C59-8C7C-6CA4DC618EBB}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{B0DF5B0D-C5A4-4C59-8C7C-6CA4DC618EBB}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{B0DF5B0D-C5A4-4C59-8C7C-6CA4DC618EBB}.Release|Any CPU.Build.0 = Release|Any CPU
+		{F94A9C81-D2F3-487B-AE78-04EA56846F9A}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{F94A9C81-D2F3-487B-AE78-04EA56846F9A}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{F94A9C81-D2F3-487B-AE78-04EA56846F9A}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{F94A9C81-D2F3-487B-AE78-04EA56846F9A}.Release|Any CPU.Build.0 = Release|Any CPU
+		{87C9D40F-393B-44DD-B2B7-6EC61B13D42E}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{87C9D40F-393B-44DD-B2B7-6EC61B13D42E}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{87C9D40F-393B-44DD-B2B7-6EC61B13D42E}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{87C9D40F-393B-44DD-B2B7-6EC61B13D42E}.Release|Any CPU.Build.0 = Release|Any CPU
+		{C990B56A-EC15-4834-BC1D-B51D86A9AC36}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{C990B56A-EC15-4834-BC1D-B51D86A9AC36}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{C990B56A-EC15-4834-BC1D-B51D86A9AC36}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{C990B56A-EC15-4834-BC1D-B51D86A9AC36}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+EndGlobal
