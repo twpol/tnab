@@ -17,6 +17,9 @@ foreach (var arg in args)
     switch (action)
     {
         // Actions...
+        case "benchmark":
+            await Benchmark(arg);
+            break;
         case "print-dom":
             await PrintDom(arg);
             break;
@@ -45,12 +48,46 @@ if (action == "")
     Console.WriteLine("  TNAB.Cli [action <URL> [...]] [...]");
     Console.WriteLine();
     Console.WriteLine("Actions:");
+    Console.WriteLine("  /benchmark            Benchmark the HTML parser with the specified URLs");
     Console.WriteLine("  /print-dom            Print the HTML tree from the specified URLs");
     Console.WriteLine("  /print-nodes          Print the HTML nodes from the specified URLs");
     Console.WriteLine("  /print-tokens         Print the HTML tokens from the specified URLs");
     Console.WriteLine();
     Console.WriteLine("Arguments:");
     Console.WriteLine("  <URL>                 URL to load");
+}
+
+async Task Benchmark(string url)
+{
+    var stream = new MemoryStream();
+    var response = await NetworkManager.Get(new Uri(url));
+    response.CopyTo(stream);
+    var benchmarkCount = 100;
+    var timeTokensStart = DateTime.Now;
+    for (var i = 0; i < benchmarkCount; i++)
+    {
+        stream.Seek(0, SeekOrigin.Begin);
+        var htmlTokens = new HtmlTokeniser(stream);
+        foreach (var token in htmlTokens.GetTokens()) ;
+    }
+    var timeNodesStart = DateTime.Now;
+    for (var i = 0; i < benchmarkCount; i++)
+    {
+        stream.Seek(0, SeekOrigin.Begin);
+        var htmlNodes = new HtmlParser(stream);
+        foreach (var node in htmlNodes.GetNodes()) ;
+    }
+    var timeParseStart = DateTime.Now;
+    for (var i = 0; i < benchmarkCount; i++)
+    {
+        stream.Seek(0, SeekOrigin.Begin);
+        var htmlParser = new HtmlParser(stream);
+        htmlParser.Parse();
+    }
+    var timeDone = DateTime.Now;
+    Console.WriteLine("Tokens:  {0:F3} ms", (timeNodesStart - timeTokensStart).TotalMilliseconds / benchmarkCount);
+    Console.WriteLine("Nodes:   {0:F3} ms", (timeParseStart - timeNodesStart).TotalMilliseconds / benchmarkCount);
+    Console.WriteLine("Parse:   {0:F3} ms", (timeDone - timeParseStart).TotalMilliseconds / benchmarkCount);
 }
 
 async Task PrintDom(string url)
