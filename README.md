@@ -11,6 +11,7 @@ Usage:
   TNAB.Cli [action <URL> [...]] [...]
 
 Actions:
+  /benchmark            Benchmark the HTML parser with the specified URLs
   /print-dom            Print the HTML tree from the specified URLs
   /print-nodes          Print the HTML nodes from the specified URLs
   /print-tokens         Print the HTML tokens from the specified URLs
