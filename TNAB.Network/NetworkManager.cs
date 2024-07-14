@@ -5,16 +5,15 @@ namespace TNAB.Network;
 
 public class NetworkManager
 {
-    public static async Task<Stream> Get(Uri uri)
+    public static async Task<HttpResponseMessage> Get(Uri uri)
     {
         using var client = new HttpClient();
-        var response = uri.Scheme switch
+        return uri.Scheme switch
         {
             "file" => GetFile(uri),
             "http" or "https" => await client.GetAsync(uri),
             _ => throw new NotSupportedException($"Unsupported URI scheme: {uri.Scheme}"),
         };
-        return response.Content.ReadAsStream();
     }
 
     static HttpResponseMessage GetFile(Uri uri)
