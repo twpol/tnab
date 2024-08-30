@@ -11,6 +11,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TNAB.Parsers", "TNAB.Parser
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TNAB.Streams", "TNAB.Streams\TNAB.Streams.csproj", "{C990B56A-EC15-4834-BC1D-B51D86A9AC36}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TNAB.Browser", "TNAB.Browser\TNAB.Browser.csproj", "{317FCA31-D8F5-4494-AA59-58DF57F51AA3}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -36,5 +38,9 @@ Global
 		{C990B56A-EC15-4834-BC1D-B51D86A9AC36}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{C990B56A-EC15-4834-BC1D-B51D86A9AC36}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{C990B56A-EC15-4834-BC1D-B51D86A9AC36}.Release|Any CPU.Build.0 = Release|Any CPU
+		{317FCA31-D8F5-4494-AA59-58DF57F51AA3}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{317FCA31-D8F5-4494-AA59-58DF57F51AA3}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{317FCA31-D8F5-4494-AA59-58DF57F51AA3}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{317FCA31-D8F5-4494-AA59-58DF57F51AA3}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 EndGlobal
