@@ -1,47 +1,69 @@
+using TNAB.Browser;
 using TNAB.Parsers;
 using TNAB.Network;
+using System.Diagnostics;
+
+const string LOGGING_TIMESTAMP_FORMAT = "yyyy-MM-dd HH:mm:ss.fff";
+var lastLog = DateTime.UtcNow;
+void Log(string message, string argument = "", long durationMS = -1)
+{
+    var now = DateTime.UtcNow;
+    Console.WriteLine($"{now.ToString(LOGGING_TIMESTAMP_FORMAT)}  {(now - lastLog).TotalMilliseconds,7:+#,0}  {message,-20}  {durationMS,6:#,0; ;}  {argument}");
+    lastLog = now;
+}
 
 var action = "";
+var options = new Dictionary<string, string>();
 foreach (var arg in args)
 {
-    if (arg.StartsWith("--"))
+    if (arg.StartsWith("--") || arg.StartsWith('/'))
     {
-        action = arg[2..];
-        continue;
+        action = arg[0] == '-' ? arg[2..] : arg[1..];
+        switch (action)
+        {
+            // Options...
+            case "verbose":
+            case "verbose-cpu":
+                options[action] = "";
+                action = "";
+                break;
+        }
     }
-    if (arg.StartsWith('/'))
+    else
     {
-        action = arg[1..];
-        continue;
-    }
-    switch (action)
-    {
-        // Actions...
-        case "benchmark":
-            await Benchmark(arg);
-            break;
-        case "crash-test":
-        case "crashtest":
-            await CrashTest(arg);
-            break;
-        case "print-dom":
-            await PrintDom(arg);
-            break;
-        case "print-nodes":
-            await PrintNodes(arg);
-            break;
-        case "print-tokens":
-            await PrintTokens(arg);
-            break;
-        // Errors...
-        case "":
-            Console.Error.WriteLine("No action specified for argument: {0}", arg);
-            Environment.Exit(0x10001);
-            break;
-        default:
-            Console.Error.WriteLine("Unknown action {1} specified for argument: {0}", arg, action);
-            Environment.Exit(0x10002);
-            break;
+        switch (action)
+        {
+            // Actions...
+            case "benchmark":
+                await Benchmark(arg);
+                break;
+            case "crash-test":
+            case "crashtest":
+                await CrashTest(arg);
+                break;
+            case "load-document":
+            case "reftest":
+                await LoadDocument(arg, options);
+                break;
+            case "print-dom":
+                await PrintDom(arg);
+                break;
+            case "print-nodes":
+                await PrintNodes(arg);
+                break;
+            case "print-tokens":
+                await PrintTokens(arg);
+                break;
+            // Errors...
+            case "":
+                Console.Error.WriteLine("No action specified for argument: {0}", arg);
+                Environment.Exit(0x10001);
+                break;
+            default:
+                Console.Error.WriteLine("Unknown action {1} specified for argument: {0}", arg, action);
+                Environment.Exit(0x10002);
+                break;
+        }
     }
 }
 if (action == "")
@@ -49,26 +71,41 @@ if (action == "")
     Console.WriteLine("TNAB (The Not As Bad web browser) CLI");
     Console.WriteLine();
     Console.WriteLine("Usage:");
-    Console.WriteLine("  TNAB.Cli [action <URL> [...]] [...]");
+    Console.WriteLine("  TNAB.Cli [options] [action <URL> [...]] [...]");
+    Console.WriteLine();
+    Console.WriteLine("Options:");
+    Console.WriteLine("  /verbose              Enable verbose logging");
+    Console.WriteLine("  /verbose-cpu          Enable verbose logging of CPU usage");
     Console.WriteLine();
     Console.WriteLine("Actions:");
     Console.WriteLine("  /benchmark            Benchmark the HTML/CSS parser with the specified URLs");
     Console.WriteLine("  /crash-test           Crash test the HTML/CSS parser with the specified URLs");
+    Console.WriteLine("  /load-document        Load navigable document from the specified URLs");
     Console.WriteLine("  /print-dom            Print the HTML/CSS tree from the specified URLs");
     Console.WriteLine("  /print-nodes          Print the HTML/CSS nodes from the specified URLs");
     Console.WriteLine("  /print-tokens         Print the HTML/CSS tokens from the specified URLs");
     Console.WriteLine();
     Console.WriteLine("Aliases for Web Platform Tests:");
     Console.WriteLine("  /crashtest            --> /crash-test");
+    Console.WriteLine("  /reftest              --> /load-document");
     Console.WriteLine();
     Console.WriteLine("Arguments:");
     Console.WriteLine("  <URL>                 URL to load");
 }
+else
+{
+    if (options.ContainsKey("verbose-cpu"))
+    {
+        var process = Process.GetCurrentProcess();
+        Console.WriteLine("Total CPU time: {0:N0} ms", process.TotalProcessorTime.TotalMilliseconds);
+    }
+}
 
 async Task Benchmark(string url)
 {
+    var network = new NetworkManager();
     var stream = new MemoryStream();
-    var response = await NetworkManager.Get(new Uri(url));
+    var response = await network.Get(new Uri(url));
     response.Content.ReadAsStream().CopyTo(stream);
     var mediaType = response.Content.Headers.ContentType?.MediaType;
     var benchmarkCount = 100;
@@ -128,7 +165,8 @@ async Task Benchmark(string url)
 
 async Task CrashTest(string url)
 {
-    var response = await NetworkManager.Get(new Uri(url));
+    var network = new NetworkManager();
+    var response = await network.Get(new Uri(url));
     var stream = response.Content.ReadAsStream();
     switch (response.Content.Headers.ContentType?.MediaType)
     {
@@ -143,9 +181,27 @@ async Task CrashTest(string url)
     }
 }
 
+async Task LoadDocument(string url, Dictionary<string, string> options)
+{
+    var verbose = options.ContainsKey("verbose");
+    var network = new NetworkManager();
+    var navigable = new Navigable(network);
+    if (verbose)
+    {
+        Console.WriteLine($"Date and time         Delta (ms)  Operation      Duration (ms)  Arguments");
+        network.RequestLoading += (sender, e) => Log("Request begin", e.Uri.ToString());
+        network.RequestLoaded += (sender, e) => Log("Request end", e.Uri.ToString(), e.DurationMS);
+        navigable.DocumentLoading += (sender, e) => Log("Document begin", e.Uri.ToString());
+        navigable.DocumentLoaded += (sender, e) => Log("Document end", e.Uri.ToString(), e.DurationMS);
+    }
+
+    await navigable.Navigate(new Uri(url));
+}
+
 async Task PrintDom(string url)
 {
-    var response = await NetworkManager.Get(new Uri(url));
+    var network = new NetworkManager();
+    var response = await network.Get(new Uri(url));
     if (response.Content.Headers.ContentType?.MediaType == "text/css")
     {
         var cssParser = new CssParser(response.Content.ReadAsStream());
@@ -162,7 +218,8 @@ async Task PrintDom(string url)
 
 async Task PrintNodes(string url)
 {
-    var response = await NetworkManager.Get(new Uri(url));
+    var network = new NetworkManager();
+    var response = await network.Get(new Uri(url));
     if (response.Content.Headers.ContentType?.MediaType == "text/css")
     {
         var cssNodes = new CssParser(response.Content.ReadAsStream());
@@ -177,7 +234,8 @@ async Task PrintNodes(string url)
 
 async Task PrintTokens(string url)
 {
-    var response = await NetworkManager.Get(new Uri(url));
+    var network = new NetworkManager();
+    var response = await network.Get(new Uri(url));
     if (response.Content.Headers.ContentType?.MediaType == "text/css")
     {
         var cssTokens = new CssTokeniser(response.Content.ReadAsStream());
