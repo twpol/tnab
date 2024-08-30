@@ -136,7 +136,7 @@ public class Html5LibTests
     public void TreeConstruction(TreeConstructionTest test)
     {
         var input = new MemoryStream(Encoding.UTF8.GetBytes(string.Join("\n", test.Input)));
-        var htmlParser = new HtmlParser(input);
+        var htmlParser = new HtmlParser(new Uri("about:blank"), input);
         htmlParser.Parse();
         var actual = new StringBuilder();
         PrintNode(ref actual, 0, htmlParser.Root);
