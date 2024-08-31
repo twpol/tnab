@@ -28,14 +28,16 @@ public class HtmlParser
 
     public MarkupDocument Root;
 
+    readonly Uri BaseUri;
     readonly StreamReaderWithPeekBuffer Reader;
     readonly HtmlTokeniser Tokeniser;
 
-    public HtmlParser(Stream stream)
+    public HtmlParser(Uri baseUri, Stream stream)
     {
+        BaseUri = baseUri;
         Reader = new StreamReaderWithPeekBuffer(stream);
         Tokeniser = new HtmlTokeniser(Reader);
-        Root = new MarkupDocument();
+        Root = new MarkupDocument(BaseUri);
     }
 
     public IEnumerable<MarkupNode> GetNodes()
@@ -62,6 +64,8 @@ public class HtmlParser
                     attributeName = "";
                     break;
                 case HtmlTokeniser.TokenType.TagOpenEnd:
+                    var openEndElement = stack.Peek() as MarkupElement;
+                    if (openEndElement != null && openEndElement.Name == "link" && openEndElement.Attributes.TryGetValue("rel", out string? rel) && rel == "stylesheet" && openEndElement.Attributes.TryGetValue("href", out string? href)) OnStyleSheet(new(openEndElement, new(BaseUri, href)));
                     yield return stack.Peek();
                     if (VoidElements.Contains(stack.Peek().Name)) stack.Pop();
                     break;
@@ -91,4 +95,8 @@ public class HtmlParser
     {
         foreach (var _ in GetNodes()) ;
     }
+
+    public record StyleSheetEventArgs(MarkupElement Element, Uri Uri);
+    public event EventHandler<StyleSheetEventArgs>? StyleSheet;
+    protected virtual void OnStyleSheet(StyleSheetEventArgs e) => StyleSheet?.Invoke(this, e);
 }
