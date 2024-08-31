@@ -13,7 +13,7 @@ public enum StyleNodeType
 public abstract record StyleNode(StyleNodeType NodeType);
 
 public abstract record StyleSheet(string Type) : StyleNode(StyleNodeType.StyleSheet);
-public record CssStyleSheet(CustomList<CssRule> Rules) : StyleSheet("text/css");
+public record CssStyleSheet(Uri BaseUri, CustomList<CssRule> Rules) : StyleSheet("text/css");
 
 public abstract record CssRule() : StyleNode(StyleNodeType.Rule);
 

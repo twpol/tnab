@@ -11,6 +11,7 @@ public enum NodeType
     Document,
     DocumentType,
     DocumentFragment,
+    TNABStyleSheet,
 }
 
 public abstract record Node(NodeType NodeType, string NodeName, string? NodeValue, CustomList<Node> Children);
@@ -20,6 +21,9 @@ public record Text(string NodeValue) : Node(NodeType.Text, "#text", NodeValue, [
 // Not implemented: public record CDataSection(string NodeValue) : Node(NodeType.CDataSection, "#cdata-section", NodeValue, []);
 // Not implemented: public record ProcessingInstruction(string NodeName, string NodeValue) : Node(NodeType.PRocessingInstruction, NodeName, NodeValue, []);
 public record Comment(string NodeValue) : Node(NodeType.Comment, "#comment", NodeValue, []);
-public record Document() : Node(NodeType.Document, "#document", null, []);
+public record Document(Uri BaseUri) : Node(NodeType.Document, "#document", null, []);
 // Not implemented: public record DocumentType(string NodeName) : Node(NodeType.DocumentType, NodeName, null, []);
 // Not implemented: public record DocumentFragment() : Node(NodeType.DocumentFragment, "#document-fragment", null, []);
+
+// NOTE: TNAB extension
+public record TNABStyleSheet(StyleSheet StyleSheet) : Node(NodeType.TNABStyleSheet, "#style-sheet", null, []);

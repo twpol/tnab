@@ -8,17 +8,32 @@ public class Navigable(NetworkManager networkManager)
 {
     readonly NetworkManager NetworkManager = networkManager;
 
-    public Document ActiveDocument { get; private set; } = new Document();
+    public Document ActiveDocument { get; private set; } = new Document(new Uri("about:blank"));
 
     public async Task Navigate(Uri uri)
     {
         OnDocumentLoading(new DocumentLoadingEventArgs(uri));
         var timer = Stopwatch.StartNew();
+        var loading = 0;
         var response = await NetworkManager.Get(uri);
         var stream = response.Content.ReadAsStream();
-        var htmlParser = new HtmlParser(stream);
-        // TODO: Implement style sheet hook here
+        var htmlParser = new HtmlParser(uri, stream);
+        htmlParser.StyleSheet += async (sender, e) =>
+        {
+            OnResourceLoading(new ResourceLoadingEventArgs(e.Uri));
+            var timer = Stopwatch.StartNew();
+            loading++;
+            var response = await NetworkManager.Get(e.Uri);
+            var stream = response.Content.ReadAsStream();
+            var cssParser = new CssParser(e.Uri, stream);
+            cssParser.Parse();
+            e.Element.Children.Add(new TNABStyleSheet(cssParser.Root));
+            loading--;
+            timer.Stop();
+            OnResourceLoaded(new ResourceLoadedEventArgs(e.Uri, timer.ElapsedMilliseconds));
+        };
         htmlParser.Parse();
+        while (loading > 0) await Task.Delay(100);
         ActiveDocument = htmlParser.Root;
         timer.Stop();
         OnDocumentLoaded(new DocumentLoadedEventArgs(uri, timer.ElapsedMilliseconds));
@@ -31,4 +46,12 @@ public class Navigable(NetworkManager networkManager)
     public record DocumentLoadedEventArgs(Uri Uri, long DurationMS);
     public event EventHandler<DocumentLoadedEventArgs>? DocumentLoaded;
     protected virtual void OnDocumentLoaded(DocumentLoadedEventArgs e) => DocumentLoaded?.Invoke(this, e);
+
+    public record ResourceLoadingEventArgs(Uri Uri);
+    public event EventHandler<ResourceLoadingEventArgs>? ResourceLoading;
+    protected virtual void OnResourceLoading(ResourceLoadingEventArgs e) => ResourceLoading?.Invoke(this, e);
+
+    public record ResourceLoadedEventArgs(Uri Uri, long DurationMS);
+    public event EventHandler<ResourceLoadedEventArgs>? ResourceLoaded;
+    protected virtual void OnResourceLoaded(ResourceLoadedEventArgs e) => ResourceLoaded?.Invoke(this, e);
 }

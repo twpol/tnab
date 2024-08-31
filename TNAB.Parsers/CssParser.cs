@@ -8,14 +8,16 @@ public partial class CssParser
 {
     public CssStyleSheet Root;
 
+    readonly Uri BaseUri;
     readonly StreamReaderWithPeekBuffer Reader;
     readonly CssTokeniser Tokeniser;
 
-    public CssParser(Stream stream)
+    public CssParser(Uri baseUri, Stream stream)
     {
+        BaseUri = baseUri;
         Reader = new StreamReaderWithPeekBuffer(stream);
         Tokeniser = new CssTokeniser(Reader);
-        Root = new CssStyleSheet([]);
+        Root = new CssStyleSheet(BaseUri, []);
     }
 
     public IEnumerable<StyleNode> GetNodes()
