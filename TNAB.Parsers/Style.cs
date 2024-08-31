@@ -3,7 +3,7 @@ namespace TNAB.Parsers;
 public abstract record StyleNode();
 
 public abstract record StyleSheet(string Type) : StyleNode();
-public record CssStyleSheet(CustomList<CssStatement> Statements) : StyleSheet("text/css");
+public record CssStyleSheet(Uri BaseUri, CustomList<CssStatement> Statements) : StyleSheet("text/css");
 
 public abstract record CssStatement() : StyleNode();
 public abstract record CssGroupingStatement(CustomList<CssStatement> Statements) : CssStatement();
