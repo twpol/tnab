@@ -73,6 +73,7 @@ public class HtmlParser
                     var ending = stack.FirstOrDefault(s => s.Name == token.Value);
                     if (ending != null)
                     {
+                        if (ending is MarkupElement endingElement && ending.Name == "style") OnStyleSheet(new(endingElement, null));
                         while (stack.Peek() != ending) stack.Pop();
                         stack.Pop();
                     }
@@ -96,7 +97,7 @@ public class HtmlParser
         foreach (var _ in GetNodes()) ;
     }
 
-    public record StyleSheetEventArgs(MarkupElement Element, Uri Uri);
+    public record StyleSheetEventArgs(MarkupNode Node, Uri? Uri);
     public event EventHandler<StyleSheetEventArgs>? StyleSheet;
     protected virtual void OnStyleSheet(StyleSheetEventArgs e) => StyleSheet?.Invoke(this, e);
 }
