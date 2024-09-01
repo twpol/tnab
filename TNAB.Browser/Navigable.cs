@@ -23,11 +23,11 @@ public class Navigable(NetworkManager networkManager)
             OnResourceLoading(new ResourceLoadingEventArgs(e.Uri));
             var timer = Stopwatch.StartNew();
             loading++;
-            var response = await NetworkManager.Get(e.Uri);
-            var stream = response.Content.ReadAsStream();
-            var cssParser = new CssParser(e.Uri, stream);
+            if (e.Uri == null && e.Node.Children.Count != 1) return;
+            var stream = e.Uri == null ? new MemoryStream(System.Text.Encoding.UTF8.GetBytes(e.Node.Children[0].NodeValue ?? "")) : (await NetworkManager.Get(e.Uri)).Content.ReadAsStream();
+            var cssParser = new CssParser(e.Uri ?? uri, stream);
             cssParser.Parse();
-            e.Element.Children.Add(new TNABStyleSheet(cssParser.Root));
+            e.Node.Children.Add(new TNABStyleSheet(cssParser.Root));
             loading--;
             timer.Stop();
             OnResourceLoaded(new ResourceLoadedEventArgs(e.Uri, timer.ElapsedMilliseconds));
@@ -47,11 +47,11 @@ public class Navigable(NetworkManager networkManager)
     public event EventHandler<DocumentLoadedEventArgs>? DocumentLoaded;
     protected virtual void OnDocumentLoaded(DocumentLoadedEventArgs e) => DocumentLoaded?.Invoke(this, e);
 
-    public record ResourceLoadingEventArgs(Uri Uri);
+    public record ResourceLoadingEventArgs(Uri? Uri);
     public event EventHandler<ResourceLoadingEventArgs>? ResourceLoading;
     protected virtual void OnResourceLoading(ResourceLoadingEventArgs e) => ResourceLoading?.Invoke(this, e);
 
-    public record ResourceLoadedEventArgs(Uri Uri, long DurationMS);
+    public record ResourceLoadedEventArgs(Uri? Uri, long DurationMS);
     public event EventHandler<ResourceLoadedEventArgs>? ResourceLoaded;
     protected virtual void OnResourceLoaded(ResourceLoadedEventArgs e) => ResourceLoaded?.Invoke(this, e);
 }
