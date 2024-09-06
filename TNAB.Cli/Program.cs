@@ -52,7 +52,7 @@ if (action == "")
     Console.WriteLine("  TNAB.Cli [action <URL> [...]] [...]");
     Console.WriteLine();
     Console.WriteLine("Actions:");
-    Console.WriteLine("  /benchmark            Benchmark the HTML parser with the specified URLs");
+    Console.WriteLine("  /benchmark            Benchmark the HTML/CSS parser with the specified URLs");
     Console.WriteLine("  /crash-test           Crash test the HTML parser with the specified URLs");
     Console.WriteLine("  /print-dom            Print the HTML/CSS tree from the specified URLs");
     Console.WriteLine("  /print-nodes          Print the HTML/CSS nodes from the specified URLs");
@@ -70,27 +70,55 @@ async Task Benchmark(string url)
     var stream = new MemoryStream();
     var response = await NetworkManager.Get(new Uri(url));
     response.Content.ReadAsStream().CopyTo(stream);
+    var mediaType = response.Content.Headers.ContentType?.MediaType;
     var benchmarkCount = 100;
     var timeTokensStart = DateTime.Now;
     for (var i = 0; i < benchmarkCount; i++)
     {
         stream.Seek(0, SeekOrigin.Begin);
-        var htmlTokens = new HtmlTokeniser(stream);
-        foreach (var token in htmlTokens.GetTokens()) ;
+        switch (mediaType)
+        {
+            case "text/css":
+                var cssTokens = new CssTokeniser(stream);
+                foreach (var token in cssTokens.GetTokens()) ;
+                break;
+            default:
+                var htmlTokens = new HtmlTokeniser(stream);
+                foreach (var token in htmlTokens.GetTokens()) ;
+                break;
+        }
     }
     var timeNodesStart = DateTime.Now;
     for (var i = 0; i < benchmarkCount; i++)
     {
         stream.Seek(0, SeekOrigin.Begin);
-        var htmlNodes = new HtmlParser(stream);
-        foreach (var node in htmlNodes.GetNodes()) ;
+        switch (mediaType)
+        {
+            case "text/css":
+                var cssNodes = new CssParser(stream);
+                foreach (var node in cssNodes.GetNodes()) ;
+                break;
+            default:
+                var htmlNodes = new HtmlParser(stream);
+                foreach (var node in htmlNodes.GetNodes()) ;
+                break;
+        }
     }
     var timeParseStart = DateTime.Now;
     for (var i = 0; i < benchmarkCount; i++)
     {
         stream.Seek(0, SeekOrigin.Begin);
-        var htmlParser = new HtmlParser(stream);
-        htmlParser.Parse();
+        switch (mediaType)
+        {
+            case "text/css":
+                var cssParser = new CssParser(stream);
+                cssParser.Parse();
+                break;
+            default:
+                var htmlParser = new HtmlParser(stream);
+                htmlParser.Parse();
+                break;
+        }
     }
     var timeDone = DateTime.Now;
     Console.WriteLine("Tokens:  {0:F3} ms", (timeNodesStart - timeTokensStart).TotalMilliseconds / benchmarkCount);
