@@ -52,7 +52,7 @@ if (action == "")
     Console.WriteLine();
     Console.WriteLine("Actions:");
     Console.WriteLine("  /benchmark            Benchmark the HTML/CSS parser with the specified URLs");
-    Console.WriteLine("  /crashtest            Crash test the HTML parser with the specified URLs");
+    Console.WriteLine("  /crashtest            Crash test the HTML/CSS parser with the specified URLs");
     Console.WriteLine("  /print-dom            Print the HTML/CSS tree from the specified URLs");
     Console.WriteLine("  /print-nodes          Print the HTML/CSS nodes from the specified URLs");
     Console.WriteLine("  /print-tokens         Print the HTML/CSS tokens from the specified URLs");
@@ -126,8 +126,17 @@ async Task CrashTest(string url)
 {
     var response = await NetworkManager.Get(new Uri(url));
     var stream = response.Content.ReadAsStream();
-    var htmlParser = new HtmlParser(stream);
-    htmlParser.Parse();
+    switch (response.Content.Headers.ContentType?.MediaType)
+    {
+        case "text/css":
+            var cssParser = new CssParser(stream);
+            cssParser.Parse();
+            break;
+        default:
+            var htmlParser = new HtmlParser(stream);
+            htmlParser.Parse();
+            break;
+    }
 }
 
 async Task PrintDom(string url)
