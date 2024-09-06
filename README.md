@@ -12,7 +12,7 @@ Usage:
 
 Actions:
   /benchmark            Benchmark the HTML/CSS parser with the specified URLs
-  /crash-test           Crash test the HTML parser with the specified URLs
+  /crash-test           Crash test the HTML/CSS parser with the specified URLs
   /print-dom            Print the HTML/CSS tree from the specified URLs
   /print-nodes          Print the HTML/CSS nodes from the specified URLs
   /print-tokens         Print the HTML/CSS tokens from the specified URLs
