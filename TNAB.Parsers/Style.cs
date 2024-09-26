@@ -15,16 +15,66 @@ public abstract record StyleNode(StyleNodeType NodeType);
 public abstract record StyleSheet(string Type) : StyleNode(StyleNodeType.StyleSheet);
 public record CssStyleSheet(Uri BaseUri, CustomList<CssRule> Rules) : StyleSheet("text/css");
 
-public abstract record CssRule() : StyleNode(StyleNodeType.Rule);
+public abstract record CssRule() : StyleNode(StyleNodeType.Rule)
+{
+    public abstract bool IsMatch(Node node);
+}
 
 public abstract record CssGroupingRule(CustomList<CssRule> Rules) : CssRule();
 public abstract record CssConditionRule(CustomList<CssStyleValue> Condition) : CssGroupingRule([]);
 
-public record CssStyleRule(CustomList<CssSelector> Selectors, CssStyleDeclaration Style) : CssGroupingRule([]);
-public record CssAtRule(string Name, CssStyleDeclaration Style) : CssConditionRule([]);
+public record CssStyleRule(CustomList<CssSelector> Selectors, CssStyleDeclaration Style) : CssGroupingRule([])
+{
+    public override bool IsMatch(Node node) => Selectors.Any(selector => selector.IsMatch(node));
+}
+public record CssAtRule(string Name, CssStyleDeclaration Style) : CssConditionRule([])
+{
+    public override bool IsMatch(Node node) => false;
+}
 
-public record CssSelector(CustomList<CssSelectorComponent> Components) : StyleNode(StyleNodeType.Selector);
-public record CssSelectorComponent(CssCombinator Combinator, CustomList<CssSimpleSelector> Selectors) : StyleNode(StyleNodeType.Selector);
+public record CssSelector(CustomList<CssSelectorComponent> Components) : StyleNode(StyleNodeType.Selector)
+{
+    public bool IsMatch(Node node)
+    {
+        var index = Components.Count - 1;
+        if (!Components[index].IsMatch(node)) return false;
+        var current = node;
+        while (index > 0)
+        {
+            switch (Components[index].Combinator)
+            {
+                case CssCombinator.Descendant:
+                    current = current.ParentNode;
+                    while (current != null && !Components[index - 1].IsMatch(current)) current = current.ParentNode;
+                    if (current == null) return false;
+                    break;
+                case CssCombinator.Child:
+                    current = current.ParentNode;
+                    if (current == null || !Components[index - 1].IsMatch(current)) return false;
+                    break;
+                case CssCombinator.NextSibling:
+                    if (current.ParentNode == null) return false;
+                    var previousSiblingIndex = current.ParentNode.Children.IndexOf(current) - 1;
+                    if (previousSiblingIndex < 0) return false;
+                    current = current.ParentNode.Children[previousSiblingIndex];
+                    if (!Components[index - 1].IsMatch(current)) return false;
+                    break;
+                case CssCombinator.SubsequentSibling:
+                    if (current.ParentNode == null) return false;
+                    var currentSiblingIndex = current.ParentNode.Children.IndexOf(current) - 1;
+                    while (currentSiblingIndex >= 0 && !Components[index - 1].IsMatch(current.ParentNode.Children[currentSiblingIndex])) currentSiblingIndex--;
+                    if (currentSiblingIndex < 0) return false;
+                    break;
+            }
+            index--;
+        }
+        return true;
+    }
+}
+public record CssSelectorComponent(CssCombinator Combinator, CustomList<CssSimpleSelector> Selectors) : StyleNode(StyleNodeType.Selector)
+{
+    public bool IsMatch(Node node) => Selectors.All(selector => selector.IsMatch(node));
+}
 public enum CssCombinator
 {
     Unset,
@@ -33,14 +83,63 @@ public enum CssCombinator
     NextSibling,
     SubsequentSibling,
 }
-public abstract record CssSimpleSelector(CustomList<CssStyleValue> Values) : StyleNode(StyleNodeType.Selector);
-public record CssUniversalSelector() : CssSimpleSelector([]);
-public record CssTypeSelector(string Name) : CssSimpleSelector([]);
-public record CssAttributeSelector() : CssSimpleSelector([]);
-public record CssClassSelector(string Class) : CssSimpleSelector([]);
-public record CssIDSelector(string ID) : CssSimpleSelector([]);
-public record CssPseudoClassSelector(string PseudoClass) : CssSimpleSelector([]);
-public record CssPseudoElementSelector(string PseudoElement) : CssSimpleSelector([]);
+public abstract record CssSimpleSelector(CustomList<CssStyleValue> Values) : StyleNode(StyleNodeType.Selector)
+{
+    public abstract bool IsMatch(Node node);
+}
+public record CssUniversalSelector() : CssSimpleSelector([])
+{
+    public override bool IsMatch(Node node) => true;
+}
+public record CssTypeSelector(string Name) : CssSimpleSelector([])
+{
+    public override bool IsMatch(Node node) => node.NodeName == Name;
+}
+public record CssAttributeSelector() : CssSimpleSelector([])
+{
+    public string Name => Values.Count >= 1 ? Values[0] is CssStringValue stringValue ? stringValue.Value : Values[0] is CssKeywordValue keywordValue ? keywordValue.Value : "" : "";
+    public string Type => Values.Count >= 2 && Values[1] is CssKeywordValue keywordValue ? keywordValue.Value : "";
+    public string Value => Values.Count >= 3 ? Values[2] is CssStringValue stringValue ? stringValue.Value : Values[2] is CssKeywordValue keywordValue ? keywordValue.Value : "" : "";
+    public override bool IsMatch(Node node) => node is Element element && element.Attributes.TryGetValue(Name, out var attribute) switch
+    {
+        true => Type switch
+        {
+            "" => true,
+            "=" => attribute == Value,
+            "~=" => attribute.Split(' ').Contains(Value),
+            "|=" => attribute.StartsWith(Value + "-"),
+            "^=" => attribute.StartsWith(Value),
+            "$=" => attribute.EndsWith(Value),
+            "*=" => attribute.Contains(Value),
+            _ => false,
+        },
+        false => false,
+    };
+}
+public record CssClassSelector(string Class) : CssSimpleSelector([])
+{
+    public override bool IsMatch(Node node) => node is Element element && element.Attributes.TryGetValue("class", out var attribute) switch
+    {
+        true => attribute.Split(' ').Contains(Class),
+        false => false,
+    };
+}
+public record CssIDSelector(string ID) : CssSimpleSelector([])
+{
+    public override bool IsMatch(Node node) => node is Element element && element.Attributes.TryGetValue("id", out var attribute) switch
+    {
+        true => attribute == ID,
+        false => false,
+    };
+}
+public record CssPseudoClassSelector(string PseudoClass) : CssSimpleSelector([])
+{
+    public override bool IsMatch(Node node) => false;
+}
+public record CssPseudoElementSelector(string PseudoElement) : CssSimpleSelector([])
+{
+    public override bool IsMatch(Node node) => false;
+}
 
 public record CssStyleDeclaration(CustomList<CssStyleProperty> Properties) : StyleNode(StyleNodeType.Declaration);
 public record CssStyleProperty(string Name, CustomList<CssStyleValue> Values, bool Important) : StyleNode(StyleNodeType.Property);
