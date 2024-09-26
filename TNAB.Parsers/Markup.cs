@@ -20,6 +20,13 @@ public abstract record NodeBase(NodeType NodeType, string NodeName, string? Node
 public abstract record Node(NodeType NodeType, string NodeName, string? NodeValue, CustomList<Node> Children) : NodeBase(NodeType, NodeName, NodeValue, Children)
 {
     public Node? ParentNode { get; set; } = null;
+    public List<T> OfType<T>() where T : Node => OfType<T>([]);
+    public List<T> OfType<T>(List<T> list) where T : Node
+    {
+        for (var i = 0; i < Children.Count; i++) Children[i].OfType(list);
+        if (this is T match) list.Add(match);
+        return list;
+    }
     protected override bool PrintMembers(StringBuilder builder) => base.PrintMembers(builder);
 }
 public record Element(string NodeName, CustomDictionary<string, string> Attributes) : Node(NodeType.Element, NodeName, null, []);
