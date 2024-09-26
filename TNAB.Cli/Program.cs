@@ -1,6 +1,7 @@
 using TNAB.Browser;
 using TNAB.Parsers;
 using TNAB.Network;
+using TNAB.Layout;
 using System.Diagnostics;
 
 const string LOGGING_TIMESTAMP_FORMAT = "yyyy-MM-dd HH:mm:ss.fff";
@@ -45,6 +46,9 @@ foreach (var arg in args)
             case "reftest":
                 await LoadDocument(arg, options);
                 break;
+            case "print-boxes":
+                await PrintBoxes(arg);
+                break;
             case "print-dom":
                 await PrintDom(arg);
                 break;
@@ -81,6 +85,7 @@ if (action == "")
     Console.WriteLine("  /benchmark            Benchmark the HTML/CSS parser with the specified URLs");
     Console.WriteLine("  /crash-test           Crash test the HTML/CSS parser with the specified URLs");
     Console.WriteLine("  /load-document        Load navigable document from the specified URLs");
+    Console.WriteLine("  /print-boxes          Print the box tree from the specified URLs");
     Console.WriteLine("  /print-dom            Print the HTML/CSS tree from the specified URLs");
     Console.WriteLine("  /print-nodes          Print the HTML/CSS nodes from the specified URLs");
     Console.WriteLine("  /print-tokens         Print the HTML/CSS tokens from the specified URLs");
@@ -200,6 +205,20 @@ async Task LoadDocument(string url, Dictionary<string, string> options)
     }
 
     await navigable.Navigate(new Uri(url));
+
+    var layout = new BoxParser(navigable.ActiveDocument);
+    layout.Parse();
+    if (verbose) Log("Layout complete");
+}
+
+async Task PrintBoxes(string url)
+{
+    var network = new NetworkManager();
+    var navigable = new Navigable(network);
+    await navigable.Navigate(new Uri(url));
+    var box = new BoxParser(navigable.ActiveDocument);
+    box.Parse();
+    PrintBoxNode(0, box.Root);
 }
 
 async Task PrintDom(string url)
@@ -392,4 +411,12 @@ void PrintStyleNode(int level, StyleNode node)
         default:
             throw new NotImplementedException($"Print not implemented for {node.GetType().Name}");
     }
+}
+
+string GetBoxIndent(int level) => level == 0 ? string.Empty : new string(' ', level * 2);
+
+void PrintBoxNode(int level, BoxNode node)
+{
+    Console.WriteLine("{0}{1} {2}", GetBoxIndent(level), node.Rectangle, node.Node.Name);
+    foreach (var child in node.Children) PrintBoxNode(level + 1, child);
 }
