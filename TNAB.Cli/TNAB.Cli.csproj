@@ -11,6 +11,7 @@
     <ProjectReference Include="..\TNAB.Network\TNAB.Network.csproj" />
     <ProjectReference Include="..\TNAB.Parsers\TNAB.Parsers.csproj" />
     <ProjectReference Include="..\TNAB.Browser\TNAB.Browser.csproj" />
+    <ProjectReference Include="..\TNAB.Layout\TNAB.Layout.csproj" />
   </ItemGroup>
 
 </Project>
