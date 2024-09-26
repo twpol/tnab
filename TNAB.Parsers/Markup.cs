@@ -6,6 +6,13 @@ public abstract record MarkupNodeBase(string Name, string? Value, CustomList<Mar
 public abstract record MarkupNode(string Name, string? Value, CustomList<MarkupNode> Children) : MarkupNodeBase(Name, Value, Children)
 {
     public MarkupNode? ParentNode { get; set; } = null;
+    public List<T> OfType<T>() where T : MarkupNode => OfType<T>([]);
+    public List<T> OfType<T>(List<T> list) where T : MarkupNode
+    {
+        for (var i = 0; i < Children.Count; i++) Children[i].OfType(list);
+        if (this is T match) list.Add(match);
+        return list;
+    }
     protected override bool PrintMembers(StringBuilder builder) => base.PrintMembers(builder);
 }
 public record MarkupDocument(string? DocType, Uri BaseUri) : MarkupNode("#document", null, []);
