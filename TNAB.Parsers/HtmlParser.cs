@@ -53,7 +53,10 @@ public class HtmlParser
                 case HtmlTokeniser.TokenType.DocType:
                     break;
                 case HtmlTokeniser.TokenType.TagOpen:
-                    var element = new Element(token.Value, []);
+                    var element = new Element(token.Value, [])
+                    {
+                        ParentNode = stack.Peek()
+                    };
                     stack.Peek().Children.Add(element);
                     stack.Push(element);
                     break;
@@ -80,12 +83,18 @@ public class HtmlParser
                     }
                     break;
                 case HtmlTokeniser.TokenType.Comment:
-                    var comment = new Comment(token.Value);
+                    var comment = new Comment(token.Value)
+                    {
+                        ParentNode = stack.Peek()
+                    };
                     stack.Peek().Children.Add(comment);
                     yield return comment;
                     break;
                 case HtmlTokeniser.TokenType.Character:
-                    var text = new Text(token.Value);
+                    var text = new Text(token.Value)
+                    {
+                        ParentNode = stack.Peek()
+                    };
                     stack.Peek().Children.Add(text);
                     yield return text;
                     break;

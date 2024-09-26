@@ -1,3 +1,5 @@
+using System.Text;
+
 namespace TNAB.Parsers;
 
 public enum NodeType
@@ -14,7 +16,12 @@ public enum NodeType
     TNABStyleSheet,
 }
 
-public abstract record Node(NodeType NodeType, string NodeName, string? NodeValue, CustomList<Node> Children);
+public abstract record NodeBase(NodeType NodeType, string NodeName, string? NodeValue, CustomList<Node> Children);
+public abstract record Node(NodeType NodeType, string NodeName, string? NodeValue, CustomList<Node> Children) : NodeBase(NodeType, NodeName, NodeValue, Children)
+{
+    public Node? ParentNode { get; set; } = null;
+    protected override bool PrintMembers(StringBuilder builder) => base.PrintMembers(builder);
+}
 public record Element(string NodeName, CustomDictionary<string, string> Attributes) : Node(NodeType.Element, NodeName, null, []);
 // Not implemented: public record Attribute(string NodeName, string NodeValue) : Node(NodeType.Attribute, NodeName, NodeValue, []);
 public record Text(string NodeValue) : Node(NodeType.Text, "#text", NodeValue, []);
