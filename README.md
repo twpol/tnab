@@ -8,7 +8,12 @@ Command-line, graphical tools and libraries for loading, rendering, browsing web
 TNAB (The Not As Bad web browser) CLI
 
 Usage:
-  TNAB.Cli [action <URL> [...]] [...]
+  TNAB.Cli [options] [action <URL> [...]] [...]
+
+Options:
+  /device-pixel-ratio <RATIO>  Set the device pixel ratio [default: 1.0]
+  /screenshot <PATH>    Save a screenshot to the specified path
+  /viewport <WxH>       Set the viewport size [default: 800x600]
 
 Actions:
   /benchmark            Benchmark the HTML/CSS parser with the specified URLs
