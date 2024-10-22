@@ -12,6 +12,7 @@
     <ProjectReference Include="..\TNAB.Parsers\TNAB.Parsers.csproj" />
     <ProjectReference Include="..\TNAB.Browser\TNAB.Browser.csproj" />
     <ProjectReference Include="..\TNAB.Layout\TNAB.Layout.csproj" />
+    <ProjectReference Include="..\TNAB.Renderer.Skia\TNAB.Renderer.Skia.csproj" />
   </ItemGroup>
 
 </Project>
