@@ -2,6 +2,8 @@ using TNAB.Browser;
 using TNAB.Parsers;
 using TNAB.Network;
 using TNAB.Layout;
+using TNAB.Renderer.Skia;
+using SkiaSharp;
 using System.Diagnostics;
 
 const string LOGGING_TIMESTAMP_FORMAT = "yyyy-MM-dd HH:mm:ss.fff";
@@ -34,6 +36,12 @@ foreach (var arg in args)
     {
         switch (action)
         {
+            // Options...
+            case "device-pixel-ratio":
+            case "screenshot":
+            case "viewport":
+                options[action] = arg;
+                break;
             // Actions...
             case "benchmark":
                 await Benchmark(arg);
@@ -78,8 +86,11 @@ if (action == "")
     Console.WriteLine("  TNAB.Cli [options] [action <URL> [...]] [...]");
     Console.WriteLine();
     Console.WriteLine("Options:");
+    Console.WriteLine("  /device-pixel-ratio <RATIO>  Set the device pixel ratio [default: 1.0]");
+    Console.WriteLine("  /screenshot <PATH>    Save a screenshot to the specified path");
     Console.WriteLine("  /verbose              Enable verbose logging");
     Console.WriteLine("  /verbose-cpu          Enable verbose logging of CPU usage");
+    Console.WriteLine("  /viewport <WxH>       Set the viewport size [default: 800x600]");
     Console.WriteLine();
     Console.WriteLine("Actions:");
     Console.WriteLine("  /benchmark            Benchmark the HTML/CSS parser with the specified URLs");
@@ -207,8 +218,24 @@ async Task LoadDocument(string url, Dictionary<string, string> options)
     await navigable.Navigate(new Uri(url));
 
     var layout = new BoxParser(navigable.ActiveDocument);
+    if (options.TryGetValue("viewport", out string? viewport))
+    {
+        var parts = viewport.Split('x');
+        layout.Viewport = new SKSizeI(int.Parse(parts[0]), int.Parse(parts[1]));
+    }
     layout.Parse();
     if (verbose) Log("Layout complete");
+
+    var renderer = new SkiaRenderer(layout.Root);
+    var image = renderer.Render();
+    if (verbose) Log("Render complete");
+
+    if (options.TryGetValue("screenshot", out string? screenshot))
+    {
+        using var stream = new FileStream(screenshot, FileMode.Create);
+        image.Encode(SKEncodedImageFormat.Png, 100).SaveTo(stream);
+        if (verbose) Log("Screenshot saved", screenshot);
+    }
 }
 
 async Task PrintBoxes(string url)
