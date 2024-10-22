@@ -11,8 +11,11 @@ Usage:
   TNAB.Cli [options] [action <URL> [...]] [...]
 
 Options:
+  /device-pixel-ratio <RATIO>  Set the device pixel ratio [default: 1.0]
+  /screenshot <PATH>    Save a screenshot to the specified path
   /verbose              Enable verbose logging
   /verbose-cpu          Enable verbose logging of CPU usage
+  /viewport <WxH>       Set the viewport size [default: 800x600]
 
 Actions:
   /benchmark            Benchmark the HTML/CSS parser with the specified URLs
