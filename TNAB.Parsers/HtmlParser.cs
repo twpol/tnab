@@ -41,6 +41,7 @@ public class HtmlParser
 
     public IEnumerable<MarkupNode> GetNodes()
     {
+        OnStyleSheet(new(Root, new("tnab-resource:///TNAB.Parsers/Agent.css")));
         var attributeName = "";
         var stack = new Stack<MarkupNode>();
         stack.Push(Root);
