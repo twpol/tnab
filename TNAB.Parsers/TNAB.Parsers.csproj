@@ -10,4 +10,8 @@
     <ProjectReference Include="..\TNAB.Streams\TNAB.Streams.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <EmbeddedResource Include="Agent.css" />
+  </ItemGroup>
+
 </Project>
