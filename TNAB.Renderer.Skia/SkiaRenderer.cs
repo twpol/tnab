@@ -11,10 +11,14 @@ public class SkiaRenderer(BoxNode root)
     public SKImage Render()
     {
         var surface = SKSurface.Create(new SKImageInfo((int)Root.Rectangle.Width, (int)Root.Rectangle.Height));
-        var canvas = surface.Canvas;
+        Render(surface.Canvas);
+        return surface.Snapshot();
+    }
+
+    public void Render(SKCanvas canvas)
+    {
         canvas.Clear(SKColors.White);
         RenderNode(canvas, Root);
-        return surface.Snapshot();
     }
 
     static void RenderNode(SKCanvas canvas, BoxNode node)
