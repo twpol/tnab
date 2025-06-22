@@ -45,8 +45,13 @@ public class BoxParser
     {
         if (measure.Node is MarkupText)
         {
-            // FIXME: Implement text flow here
-            if (flow != null) rectangle = flow.Add(measure.MaxContent);
+            if (flow != null)
+            {
+                foreach (var run in measure.Style.Text?.Text.Runs ?? [])
+                {
+                    run.Rectangle = flow.Add(new(run.TotalWidth, measure.MinContent.Height), run.RunWidth);
+                }
+            }
             return new(measure.Node, SKRect.Create(rectangle.Location, measure.MaxContent), measure.Style, []);
         }
         else if (flow != null && measure.Style.DisplayOutside == "inline")
@@ -106,9 +111,10 @@ public class BoxParser
 
         public SKRect OffsetRectangle => new(Rectangle.Left + Offset, Rectangle.Top, Rectangle.Right, Rectangle.Bottom);
 
-        public SKRect Add(SKSize size)
+        public SKRect Add(SKSize size, float checkWidth = 0)
         {
-            if (Offset > 0 && Offset + size.Width > Rectangle.Width) Newline();
+            if (checkWidth == 0) checkWidth = size.Width;
+            if (Offset > 0 && Offset + checkWidth > Rectangle.Width) Newline();
             var rectangle = OffsetRectangle;
             Offset += size.Width;
             MaxHeight = Math.Max(MaxHeight, size.Height);
@@ -154,14 +160,19 @@ public class BoxParser
             {
                 Color = color,
                 Font = FontDefault,
-                Text = new(text.Value.Replace("\n", "").Replace("\r", "").Replace("\t", ""), null, null, null, null, null, null, null, null)
+                Text = new(new(text.Value), null, null, null, null, null, null, null, null)
             };
             // TODO: SkiaSharp does not have any means of flowing text
-            var bounds = new SKRect(0, 0, 0, 0);
-            style.Font.MeasureText(style.Text.Text, ref bounds);
+            foreach (var run in style.Text.Text.Runs)
+            {
+                run.RunWidth = style.Font.MeasureText(run.Run);
+                run.TotalWidth = style.Font.MeasureText(run.Run + run.Space);
+            }
             // NOTE: SkiaSharp only measures the exact text rendered, i.e. it will not include space for descenders if there are none!
-            var fontSize = new SKSize(bounds.Width, style.Font.FontMetrics.Descent - style.Font.FontMetrics.Ascent);
-            return new(node, style, fontSize, fontSize, []);
+            var fontHeight = style.Font.FontMetrics.Descent - style.Font.FontMetrics.Ascent;
+            var minContent = new SKSize(style.Text.Text.Runs.Min(tfr => tfr.RunWidth), fontHeight);
+            var maxContent = new SKSize(style.Text.Text.Runs.Sum(tfr => tfr.TotalWidth), fontHeight);
+            return new(node, style, minContent, maxContent, []);
         }
         else
         {
