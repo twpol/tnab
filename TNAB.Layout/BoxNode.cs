@@ -18,7 +18,7 @@ public record BoxStyle(string DisplayOutside, string DisplayInside)
     public BoxClassification? Classification;
 }
 public record BoxColor(SKColor? Color, SKColor? BackgroundColor, object? BackgroundImage, object? BackgroundRepeat, object? BackgroundAttachment, object? BackgroundPosition);
-public record BoxText(string Text, object? WordSpacing, object? LetterSpacing, object? TextDecoration, object? VerticalAlign, object? TextTransform, object? TextAlign, object? TextIndent, object? LineHeight);
+public record BoxText(TextFlow Text, object? WordSpacing, object? LetterSpacing, object? TextDecoration, object? VerticalAlign, object? TextTransform, object? TextAlign, object? TextIndent, object? LineHeight);
 public record BoxBox(SKRect? Margin, SKRect? Padding, BoxBorder? Border, object? Width, object? Height, object? Float, object? Clear)
 {
     public SKRect Edges => new(
