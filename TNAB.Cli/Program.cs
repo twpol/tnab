@@ -4,6 +4,7 @@ using TNAB.Network;
 using TNAB.Layout;
 using TNAB.Renderer.Skia;
 using SkiaSharp;
+using System.Diagnostics;
 
 const string LOGGING_TIMESTAMP_FORMAT = "yyyy-MM-dd HH:mm:ss.fff";
 var lastLog = DateTime.UtcNow;
@@ -14,6 +15,8 @@ void Log(string message, string argument = "", long durationMS = -1)
     lastLog = now;
 }
 
+var startCpu = Process.GetCurrentProcess().TotalProcessorTime;
+var startTime = DateTime.Now;
 var action = "";
 var options = new Dictionary<string, string>();
 foreach (var arg in args)
@@ -98,6 +101,16 @@ if (action == "")
     Console.WriteLine();
     Console.WriteLine("Arguments:");
     Console.WriteLine("  <URL>                 URL to load");
+}
+else if (options.ContainsKey("verbose"))
+{
+    var process = Process.GetCurrentProcess();
+    var endCpu = process.TotalProcessorTime;
+    var endTime = DateTime.Now;
+    Log("End", "CPU (main)", (long)(endCpu - startCpu).TotalMilliseconds);
+    Log("End", "Wall (main)", (long)(endTime - startTime).TotalMilliseconds);
+    Log("End", "CPU (total)", (long)endCpu.TotalMilliseconds);
+    Log("End", "Wall (total)", (long)(endTime - process.StartTime).TotalMilliseconds);
 }
 
 async Task Benchmark(string url)
