@@ -36,7 +36,11 @@ public class SkiaRenderer(BoxNode root)
         {
             if (node.Style.Text != null && node.Style.Font != null)
             {
-                canvas.DrawText(node.Style.Text.Text, node.Rectangle.Left, node.Rectangle.Top - node.Style.Font.FontMetrics.Ascent, node.Style.Font);
+                // canvas.DrawText(node.Style.Text.Text.Text, node.Rectangle.Left, node.Rectangle.Top - node.Style.Font.FontMetrics.Ascent, node.Style.Font);
+                foreach (var run in node.Style.Text.Text.Runs)
+                {
+                    canvas.DrawText(run.Run, run.Rectangle.Left, run.Rectangle.Top - node.Style.Font.FontMetrics.Ascent, node.Style.Font);
+                }
             }
         }
         foreach (var child in node.Children)
