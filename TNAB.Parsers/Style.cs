@@ -25,7 +25,13 @@ public abstract record CssConditionRule(CustomList<CssStyleValue> Condition) : C
 
 public record CssStyleRule(CustomList<CssSelector> Selectors, CssStyleDeclaration Style) : CssGroupingRule([])
 {
-    public override bool IsMatch(Node node) => Selectors.Any(selector => selector.IsMatch(node));
+    public override bool IsMatch(Node node)
+    {
+        foreach (var selector in Selectors)
+            if (selector.IsMatch(node))
+                return true;
+        return false;
+    }
 }
 public record CssAtRule(string Name, CssStyleDeclaration Style) : CssConditionRule([])
 {
@@ -37,33 +43,44 @@ public record CssSelector(CustomList<CssSelectorComponent> Components) : StyleNo
     public bool IsMatch(Node node)
     {
         var index = Components.Count - 1;
-        if (!Components[index].IsMatch(node)) return false;
+        if (!Components[index].IsMatch(node))
+            return false;
         var current = node;
+        // FIXME: Need backtracking here for descendant and subsequent-sibling combinators
         while (index > 0)
         {
             switch (Components[index].Combinator)
             {
                 case CssCombinator.Descendant:
                     current = current.ParentNode;
-                    while (current != null && !Components[index - 1].IsMatch(current)) current = current.ParentNode;
-                    if (current == null) return false;
+                    while (current != null && !Components[index - 1].IsMatch(current))
+                        current = current.ParentNode;
+                    if (current == null)
+                        return false;
                     break;
                 case CssCombinator.Child:
                     current = current.ParentNode;
-                    if (current == null || !Components[index - 1].IsMatch(current)) return false;
+                    if (current == null || !Components[index - 1].IsMatch(current))
+                        return false;
                     break;
                 case CssCombinator.NextSibling:
-                    if (current.ParentNode == null) return false;
+                    if (current.ParentNode == null)
+                        return false;
                     var previousSiblingIndex = current.ParentNode.Children.IndexOf(current) - 1;
-                    if (previousSiblingIndex < 0) return false;
+                    if (previousSiblingIndex < 0)
+                        return false;
                     current = current.ParentNode.Children[previousSiblingIndex];
-                    if (!Components[index - 1].IsMatch(current)) return false;
+                    if (!Components[index - 1].IsMatch(current))
+                        return false;
                     break;
                 case CssCombinator.SubsequentSibling:
-                    if (current.ParentNode == null) return false;
+                    if (current.ParentNode == null)
+                        return false;
                     var currentSiblingIndex = current.ParentNode.Children.IndexOf(current) - 1;
-                    while (currentSiblingIndex >= 0 && !Components[index - 1].IsMatch(current.ParentNode.Children[currentSiblingIndex])) currentSiblingIndex--;
-                    if (currentSiblingIndex < 0) return false;
+                    while (currentSiblingIndex >= 0 && !Components[index - 1].IsMatch(current.ParentNode.Children[currentSiblingIndex]))
+                        currentSiblingIndex--;
+                    if (currentSiblingIndex < 0)
+                        return false;
                     break;
             }
             index--;
@@ -73,7 +90,13 @@ public record CssSelector(CustomList<CssSelectorComponent> Components) : StyleNo
 }
 public record CssSelectorComponent(CssCombinator Combinator, CustomList<CssSimpleSelector> Selectors) : StyleNode(StyleNodeType.Selector)
 {
-    public bool IsMatch(Node node) => Selectors.All(selector => selector.IsMatch(node));
+    public bool IsMatch(Node node)
+    {
+        foreach (var selector in Selectors)
+            if (!selector.IsMatch(node))
+                return false;
+        return true;
+    }
 }
 public enum CssCombinator
 {
