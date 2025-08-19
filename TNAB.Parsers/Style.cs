@@ -27,8 +27,8 @@ public record CssStyleRule(CustomList<CssSelector> Selectors, CssStyleDeclaratio
 {
     public override bool IsMatch(Node node)
     {
-        foreach (var selector in Selectors)
-            if (selector.IsMatch(node))
+        for (var i = 0; i < Selectors.Count; i++)
+            if (Selectors[i].IsMatch(node))
                 return true;
         return false;
     }
@@ -92,8 +92,8 @@ public record CssSelectorComponent(CssCombinator Combinator, CustomList<CssSimpl
 {
     public bool IsMatch(Node node)
     {
-        foreach (var selector in Selectors)
-            if (!selector.IsMatch(node))
+        for (var i = 0; i < Selectors.Count; i++)
+            if (!Selectors[i].IsMatch(node))
                 return false;
         return true;
     }
