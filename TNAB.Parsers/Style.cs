@@ -18,8 +18,8 @@ public record CssRuleSet(CustomList<CssSelector> Selectors) : CssGroupingStateme
 {
     public override bool IsMatch(MarkupNode node)
     {
-        foreach (var selector in Selectors)
-            if (selector.IsMatch(node))
+        for (var i = 0; i < Selectors.Count; i++)
+            if (Selectors[i].IsMatch(node))
                 return true;
         return false;
     }
@@ -70,8 +70,8 @@ public record CssSelectorComponent(CssCombinator Combinator, CustomList<CssSimpl
 {
     public bool IsMatch(MarkupNode node)
     {
-        foreach (var selector in Selectors)
-            if (!selector.IsMatch(node))
+        for (var i = 0; i < Selectors.Count; i++)
+            if (!Selectors[i].IsMatch(node))
                 return false;
         return true;
     }
