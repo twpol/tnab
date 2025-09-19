@@ -16,7 +16,13 @@ public record CssAtRule(string Name, CustomList<CssStyleValue> Values) : CssGrou
 }
 public record CssRuleSet(CustomList<CssSelector> Selectors) : CssGroupingStatement([])
 {
-    public override bool IsMatch(MarkupNode node) => Selectors.Any(selector => selector.IsMatch(node));
+    public override bool IsMatch(MarkupNode node)
+    {
+        foreach (var selector in Selectors)
+            if (selector.IsMatch(node))
+                return true;
+        return false;
+    }
 }
 public record CssDeclaration(string Name, CustomList<CssStyleValue> Values, bool Important) : CssStatement();
 
@@ -62,7 +68,13 @@ public record CssSelector(CustomList<CssSelectorComponent> Components) : StyleNo
 }
 public record CssSelectorComponent(CssCombinator Combinator, CustomList<CssSimpleSelector> Selectors) : StyleNode()
 {
-    public bool IsMatch(MarkupNode node) => Selectors.All(selector => selector.IsMatch(node));
+    public bool IsMatch(MarkupNode node)
+    {
+        foreach (var selector in Selectors)
+            if (!selector.IsMatch(node))
+                return false;
+        return true;
+    }
 }
 public enum CssCombinator
 {
