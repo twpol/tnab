@@ -2,6 +2,18 @@
 
 Command-line, graphical tools and libraries for loading, rendering, browsing websites.
 
+## Politics
+
+- Black Lives Matter
+- Trans rights are human rights
+- Fuck Nazis and fascists
+
+## Documentation
+
+- [HTML Support](Docs/HTML%20Support.md)
+- [CSS Support](Docs/CSS%20Support.md)
+- [Version History](Docs/Version%20History.md)
+
 ## CLI
 
 ```
@@ -33,3 +45,9 @@ Aliases for Web Platform Tests:
 Arguments:
   <URL>                 URL to load
 ```
+
+## Other projects
+
+- [Agregore](https://agregore.mauve.moe/)
+- [Dillo](https://dillo-browser.github.io/)
+- [Servo](https://servo.org/)
