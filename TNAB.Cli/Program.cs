@@ -105,7 +105,8 @@ async Task Benchmark(string url)
 {
     var network = new NetworkManager();
     var stream = new MemoryStream();
-    var response = await network.Get(new Uri(url));
+    var uri = new Uri(url);
+    var response = await network.Get(uri);
     response.Content.ReadAsStream().CopyTo(stream);
     var mediaType = response.Content.Headers.ContentType?.MediaType;
     var benchmarkCount = 100;
@@ -132,11 +133,11 @@ async Task Benchmark(string url)
         switch (mediaType)
         {
             case "text/css":
-                var cssNodes = new CssParser(stream);
+                var cssNodes = new CssParser(uri, stream);
                 foreach (var node in cssNodes.GetNodes()) ;
                 break;
             default:
-                var htmlNodes = new HtmlParser(stream);
+                var htmlNodes = new HtmlParser(uri, stream);
                 foreach (var node in htmlNodes.GetNodes()) ;
                 break;
         }
@@ -148,11 +149,11 @@ async Task Benchmark(string url)
         switch (mediaType)
         {
             case "text/css":
-                var cssParser = new CssParser(stream);
+                var cssParser = new CssParser(uri, stream);
                 cssParser.Parse();
                 break;
             default:
-                var htmlParser = new HtmlParser(stream);
+                var htmlParser = new HtmlParser(uri, stream);
                 htmlParser.Parse();
                 break;
         }
@@ -166,16 +167,17 @@ async Task Benchmark(string url)
 async Task CrashTest(string url)
 {
     var network = new NetworkManager();
-    var response = await network.Get(new Uri(url));
+    var uri = new Uri(url);
+    var response = await network.Get(uri);
     var stream = response.Content.ReadAsStream();
     switch (response.Content.Headers.ContentType?.MediaType)
     {
         case "text/css":
-            var cssParser = new CssParser(stream);
+            var cssParser = new CssParser(uri, stream);
             cssParser.Parse();
             break;
         default:
-            var htmlParser = new HtmlParser(stream);
+            var htmlParser = new HtmlParser(uri, stream);
             htmlParser.Parse();
             break;
     }
@@ -193,6 +195,8 @@ async Task LoadDocument(string url, Dictionary<string, string> options)
         network.RequestLoaded += (sender, e) => Log("Request end", e.Uri.ToString(), e.DurationMS);
         navigable.DocumentLoading += (sender, e) => Log("Document begin", e.Uri.ToString());
         navigable.DocumentLoaded += (sender, e) => Log("Document end", e.Uri.ToString(), e.DurationMS);
+        navigable.ResourceLoading += (sender, e) => Log("Resource begin", e.Uri?.ToString() ?? "(inline)");
+        navigable.ResourceLoaded += (sender, e) => Log("Resource end", e.Uri?.ToString() ?? "(inline)", e.DurationMS);
     }
 
     await navigable.Navigate(new Uri(url));
@@ -201,16 +205,17 @@ async Task LoadDocument(string url, Dictionary<string, string> options)
 async Task PrintDom(string url)
 {
     var network = new NetworkManager();
-    var response = await network.Get(new Uri(url));
+    var uri = new Uri(url);
+    var response = await network.Get(uri);
     if (response.Content.Headers.ContentType?.MediaType == "text/css")
     {
-        var cssParser = new CssParser(response.Content.ReadAsStream());
+        var cssParser = new CssParser(uri, response.Content.ReadAsStream());
         cssParser.Parse();
         PrintStyleNode(0, cssParser.Root);
     }
     else
     {
-        var htmlParser = new HtmlParser(response.Content.ReadAsStream());
+        var htmlParser = new HtmlParser(uri, response.Content.ReadAsStream());
         htmlParser.Parse();
         PrintMarkupNode(0, htmlParser.Root);
     }
@@ -219,15 +224,16 @@ async Task PrintDom(string url)
 async Task PrintNodes(string url)
 {
     var network = new NetworkManager();
-    var response = await network.Get(new Uri(url));
+    var uri = new Uri(url);
+    var response = await network.Get(uri);
     if (response.Content.Headers.ContentType?.MediaType == "text/css")
     {
-        var cssNodes = new CssParser(response.Content.ReadAsStream());
+        var cssNodes = new CssParser(uri, response.Content.ReadAsStream());
         foreach (var node in cssNodes.GetNodes()) Console.WriteLine(node);
     }
     else
     {
-        var htmlNodes = new HtmlParser(response.Content.ReadAsStream());
+        var htmlNodes = new HtmlParser(uri, response.Content.ReadAsStream());
         foreach (var node in htmlNodes.GetNodes()) Console.WriteLine(node);
     }
 }
