@@ -46,8 +46,11 @@ public class HtmlTokeniser(StreamReaderWithPeekBuffer reader)
     public IEnumerable<Token> GetTokens(State state = State.Data, string lastTag = "")
     {
         var buffer = new StringBuilder();
+        var index = 0;
         while (!Reader.EndOfStream)
         {
+            index++;
+            if (index > 1000000) throw new InvalidOperationException("Exceeded token steps");
             switch (state)
             {
                 case State.Data:
