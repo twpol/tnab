@@ -25,7 +25,7 @@ public class HtmlTokeniser(StreamReaderWithPeekBuffer reader)
     {
     }
 
-    enum State
+    public enum State
     {
         Data,
         RCData,
@@ -43,10 +43,8 @@ public class HtmlTokeniser(StreamReaderWithPeekBuffer reader)
         CData,
     }
 
-    public IEnumerable<Token> GetTokens()
+    public IEnumerable<Token> GetTokens(State state = State.Data, string lastTag = "")
     {
-        var state = State.Data;
-        var lastTag = "";
         var buffer = new StringBuilder();
         var index = 0;
         while (!Reader.EndOfStream)
