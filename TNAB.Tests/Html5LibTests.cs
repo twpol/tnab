@@ -1,10 +1,132 @@
 ﻿using System.Text;
+using System.Text.Json;
+using System.Text.Json.Nodes;
 using TNAB.Parsers;
 
 namespace TNAB.Tests;
 
 public class Html5LibTests
 {
+    [Theory]
+    [MemberData(nameof(GetTokeniserTests))]
+    public void Tokeniser(string input, HtmlTokeniser.State initialState, string lastStartTag, string expected)
+    {
+        var stream = new MemoryStream(Encoding.UTF8.GetBytes(string.Join("\n", input)));
+        var htmlTokeniser = new HtmlTokeniser(stream);
+        var actual = new JsonArray();
+        var tagName = "";
+        var attributes = new JsonObject();
+        var attributeName = "";
+        foreach (var token in htmlTokeniser.GetTokens(initialState, lastStartTag))
+        {
+            switch (token.Type)
+            {
+                case HtmlTokeniser.TokenType.Data:
+                    actual.Add(new JsonArray("Character", token.Value));
+                    break;
+                case HtmlTokeniser.TokenType.TagOpen:
+                    tagName = token.Value;
+                    break;
+                case HtmlTokeniser.TokenType.TagOpenAttributeName:
+                    attributeName = token.Value;
+                    break;
+                case HtmlTokeniser.TokenType.TagOpenAttributeValue:
+                    if (!attributes.ContainsKey(attributeName)) attributes.Add(attributeName, token.Value);
+                    break;
+                case HtmlTokeniser.TokenType.TagOpenEnd:
+                    actual.Add(new JsonArray("StartTag", tagName, attributes));
+                    attributes = [];
+                    break;
+                case HtmlTokeniser.TokenType.TagClose:
+                    if (token.Value.Length == 0)
+                    {
+                        if (actual.Count > 0 && actual.Last() is JsonArray array) array.Add(true);
+                    }
+                    else
+                    {
+                        actual.Add(new JsonArray("EndTag", token.Value));
+                    }
+                    break;
+                case HtmlTokeniser.TokenType.Comment:
+                    actual.Add(new JsonArray("Comment", token.Value));
+                    break;
+                case HtmlTokeniser.TokenType.DocType:
+                    var parts = token.Value.Split('\0').Select(s => s switch
+                    {
+                        "" => null,
+                        "True" => true,
+                        "False" => false,
+                        _ => (JsonNode)s,
+                    });
+                    actual.Add(new JsonArray(["DOCTYPE", .. parts]));
+                    break;
+
+            }
+        }
+        Assert.Equal(expected, actual.ToJsonString(CompressedJson));
+    }
+
+    public static IEnumerable<TheoryDataRow<string, HtmlTokeniser.State, string, string>> GetTokeniserTests()
+    {
+        var root = Path.GetFullPath("../../../..");
+        var skip = new List<string>();
+        foreach (var file in Directory.GetFiles(Path.Join(root, "tests", "html5lib-tests", "tokenizer"), "*.test"))
+        {
+            var rootElement = JsonDocument.Parse(File.ReadAllText(file)).RootElement;
+            var index = 0;
+            if (rootElement.TryGetProperty("tests", out var tests))
+            {
+                foreach (var test in tests.EnumerateArray())
+                {
+                    index++;
+                    foreach (var initialState in GetInitialStates(test))
+                    {
+                        var input = test.GetProperty("input").GetString() ?? "";
+                        var output = JsonSerializer.Serialize(test.GetProperty("output"), CompressedJson);
+                        var lastTag = test.TryGetProperty("lastStartTag", out var lastStartTag) ? lastStartTag.ToString() : "";
+                        skip.Clear();
+                        if (Path.GetFileName(file) == "namedEntities.test") skip.Add("Skipped due to unsupported tests (named entities)");
+                        if (Path.GetFileName(file) == "numericEntities.test") skip.Add("Skipped due to unsupported tests (numeric entities)");
+                        if (input.Contains('&', StringComparison.OrdinalIgnoreCase)) skip.Add("Skipped due to unsupported HTML (entities)");
+                        if (test.TryGetProperty("errors", out var _)) skip.Add("Skipped due to unsupported error reporting");
+                        yield return new TheoryDataRow<string, HtmlTokeniser.State, string, string>(input, initialState, lastTag, output)
+                            .WithTrait("path", Path.GetRelativePath(root, file).Replace(Path.DirectorySeparatorChar, '/') + "?index=" + index)
+                            .WithSkip(skip.Count > 0 ? string.Join(", ", skip) : null);
+                    }
+                }
+            }
+        }
+    }
+
+    static readonly JsonSerializerOptions CompressedJson = new()
+    {
+        WriteIndented = false,
+    };
+
+    static IEnumerable<HtmlTokeniser.State> GetInitialStates(JsonElement test)
+    {
+        if (test.TryGetProperty("initialStates", out var initialStates))
+        {
+            foreach (var initialState in initialStates.EnumerateArray())
+            {
+                yield return initialState.GetString() switch
+                {
+                    "Data state" => HtmlTokeniser.State.Data,
+                    "PLAINTEXT state" => HtmlTokeniser.State.PlaintText,
+                    "RCDATA state" => HtmlTokeniser.State.RCData,
+                    "RAWTEXT state" => HtmlTokeniser.State.RawText,
+                    "Script data state" => HtmlTokeniser.State.ScriptData,
+                    "CDATA section state" => HtmlTokeniser.State.CData,
+                    _ => throw new InvalidDataException($"Unknown initial state <{initialState}>"),
+                };
+            }
+        }
+        else
+        {
+            yield return HtmlTokeniser.State.Data;
+        }
+    }
+
     [Theory]
     [MemberData(nameof(GetTreeConstructionTests))]
     public void TreeConstruction(string input, string expected)
