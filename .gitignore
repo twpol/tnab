@@ -485,3 +485,4 @@ $RECYCLE.BIN/
 
 ### Custom ignores
 /tests/html5lib-tests
+/tests/wpt
