@@ -23,14 +23,24 @@ public class Navigable(NetworkManager networkManager)
             OnResourceLoading(new ResourceLoadingEventArgs(e.Uri));
             var timer = Stopwatch.StartNew();
             loading++;
-            if (e.Uri == null && e.Node.Children.Count != 1) return;
-            var stream = e.Uri == null ? new MemoryStream(System.Text.Encoding.UTF8.GetBytes(e.Node.Children[0].Value ?? "")) : (await NetworkManager.Get(e.Uri)).Content.ReadAsStream();
-            var cssParser = new CssParser(e.Uri ?? uri, stream);
-            cssParser.Parse();
-            e.Node.Children.Add(new MarkupStyleSheet(cssParser.Root));
-            loading--;
-            timer.Stop();
-            OnResourceLoaded(new ResourceLoadedEventArgs(e.Uri, timer.ElapsedMilliseconds));
+            try
+            {
+                if (e.Uri == null && e.Node.Children.Count != 1) return;
+                var stream = e.Uri == null ? new MemoryStream(System.Text.Encoding.UTF8.GetBytes(e.Node.Children[0].Value ?? "")) : (await NetworkManager.Get(e.Uri)).Content.ReadAsStream();
+                var cssParser = new CssParser(e.Uri ?? uri, stream);
+                cssParser.Parse();
+                e.Node.Children.Add(new MarkupStyleSheet(cssParser.Root));
+            }
+            catch
+            {
+                // It is not safe to let any exceptions out of here -- https://learn.microsoft.com/en-us/dotnet/csharp/modern-events#events-with-async-subscribers
+            }
+            finally
+            {
+                loading--;
+                timer.Stop();
+                OnResourceLoaded(new ResourceLoadedEventArgs(e.Uri, timer.ElapsedMilliseconds));
+            }
         };
         htmlParser.Parse();
         while (loading > 0) await Task.Delay(100);
