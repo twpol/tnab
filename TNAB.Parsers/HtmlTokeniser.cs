@@ -237,6 +237,10 @@ public class HtmlTokeniser(StreamReaderWithPeekBuffer reader)
                         else Reader.Read(">");
                         state = State.Data;
                     }
+                    else if (Reader.Read("/"))
+                    {
+                        // Consume without emitting
+                    }
                     else if (Reader.Read("="))
                     {
                         state = State.TagAttributeValue;
