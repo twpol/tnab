@@ -10,7 +10,11 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\TNAB.Browser\TNAB.Browser.csproj" />
+    <ProjectReference Include="..\TNAB.Layout\TNAB.Layout.csproj" />
+    <ProjectReference Include="..\TNAB.Network\TNAB.Network.csproj" />
     <ProjectReference Include="..\TNAB.Parsers\TNAB.Parsers.csproj" />
+    <ProjectReference Include="..\TNAB.Renderer.Skia\TNAB.Renderer.Skia.csproj" />
   </ItemGroup>
 
   <ItemGroup>
