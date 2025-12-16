@@ -1,8 +1,10 @@
 ﻿using System.Text.Json;
+using System.Text.Json.Nodes;
+using Codeuctivity.SkiaSharpCompare;
+using SkiaSharp;
 using TNAB.Browser;
 using TNAB.Layout;
 using TNAB.Network;
-using TNAB.Parsers;
 using TNAB.Renderer.Skia;
 
 namespace TNAB.Tests;
@@ -22,73 +24,54 @@ public class WebPlatformTests
         renderer.Render();
     }
 
-    public record CrashTest(string File, CustomDictionary<string, string> Properties);
+    public record CrashTest(string File, JsonObject Properties);
 
     public static IEnumerable<TheoryDataRow<CrashTest>> GetCrashTests() => GetTests("crashtest", GetCrashTestsHandler);
 
-    static TheoryDataRow<CrashTest> GetCrashTestsHandler(ref StreamJsonReaderState state, string basePath)
+    static IEnumerable<TheoryDataRow<CrashTest>> GetCrashTestsHandler(string basePath, List<string> path, JsonNode json)
     {
-        AdvanceJsonReader(ref state, out var reader);
-        var hash = reader.GetString();
+        // Console.WriteLine();
+        // Console.WriteLine(basePath);
+        // Console.WriteLine(string.Join("/", path));
+        // Console.WriteLine(System.Text.Encoding.UTF8.GetString(JsonSerializer.SerializeToUtf8Bytes(json)));
 
-        AdvanceJsonReader(ref state, out reader);
-        Assert.Equal(JsonTokenType.StartArray, reader.TokenType);
+        var testCases = json as JsonArray ?? throw new InvalidDataException($"Invalid test data; expected array, got {json}");
+        if (testCases.Count < 2) throw new InvalidDataException($"Invalid test data; expected 2+ items, got {testCases.Count}");
 
-        AdvanceJsonReader(ref state, out reader);
-        var url = reader.GetString();
-        Assert.Null(url);
+        var hash = (string?)json[0] ?? throw new InvalidDataException($"Invalid test data; expected string, got {json[0]}");
 
-        AdvanceJsonReader(ref state, out reader);
-        Assert.Equal(JsonTokenType.StartObject, reader.TokenType);
-
-        var test = new CrashTest(Path.GetFullPath(string.Join('/', state.Path.Skip(2)), basePath), []);
-
-        while (AdvanceJsonReader(ref state, out reader))
+        for (var i = 1; i < testCases.Count; i++)
         {
-            if (reader.TokenType == JsonTokenType.EndObject) break;
-            if (reader.TokenType == JsonTokenType.PropertyName)
-            {
-                var key = reader.GetString();
-                Assert.NotNull(key);
+            var testCase = testCases[i] as JsonArray ?? throw new InvalidDataException($"Invalid test data; expected array, got {testCases[i]}");
+            if (testCase.Count != 2) throw new InvalidDataException($"Invalid test data; expected 2 items, got {testCase.Count}");
+            if (testCase[0] != null) throw new InvalidDataException($"Invalid test data; expected null, got {testCase[0]}");
+            var properties = testCase[1] as JsonObject ?? throw new InvalidDataException($"Invalid test data; expected object, got {testCase[1]}");
 
-                AdvanceJsonReader(ref state, out reader);
-                var value = reader.TokenType switch
-                {
-                    JsonTokenType.String => reader.GetString(),
-                    JsonTokenType.True => "true",
-                    JsonTokenType.False => "false",
-                    _ => throw new InvalidDataException($"Unknown value type for test data properties: {reader.TokenType}"),
-                };
-                Assert.NotNull(value);
-
-                test.Properties[key] = value;
-            }
-            else
-            {
-                throw new InvalidDataException($"Unknown token in test data: {reader.TokenType}");
-            }
+            var test = new CrashTest(Path.GetFullPath(string.Join('/', path.Skip(2)), basePath), properties);
+            var skip = new List<string>();
+            if (test.Properties.Count > 0) skip.Add("Skipped due to unsupported tests (key/value properties)");
+            yield return new TheoryDataRow<CrashTest>(test)
+                .WithSkip(skip.Count > 0 ? string.Join(", ", skip) : null);
         }
-
-        var skip = new List<string>();
-        if (test.Properties.Count > 0) skip.Add("Skipped due to unsupported tests (key/value properties)");
-        return new TheoryDataRow<CrashTest>(test)
-            .WithSkip(skip.Count > 0 ? string.Join(", ", skip) : null);
     }
 
-    delegate TheoryDataRow<T> GetTestsHandler<T>(ref StreamJsonReaderState State, string BasePath);
-
-    static IEnumerable<TheoryDataRow<T>> GetTests<T>(string type, GetTestsHandler<T> handler)
+    static IEnumerable<T> GetTests<T>(string type, Func<string, List<string>, JsonNode, IEnumerable<T>> handler)
     {
         var basePath = Path.GetFullPath("../../../../tests/wpt");
         using var stream = File.OpenRead(Path.GetFullPath("MANIFEST.json", basePath));
         CreateJsonReader(stream, out var state);
-        while (AdvanceJsonReader(ref state, out var reader))
+        var reader = new Utf8JsonReader();
+        while (AdvanceJsonReader(ref state, ref reader))
         {
-            if (reader.TokenType != JsonTokenType.StartArray) continue;
             if (state.Path.Count < 3) continue;
             if (state.Path[0] != "items") continue;
             if (state.Path[1] != type) continue;
-            yield return handler(ref state, basePath);
+            if (reader.TokenType != JsonTokenType.StartArray) continue;
+            foreach (var test in handler(basePath, state.Path, ReadDocumentFromJsonReader(ref state, ref reader)))
+            {
+                yield return test;
+                reader = new();
+            }
         }
     }
 
@@ -100,24 +83,55 @@ public class WebPlatformTests
         state = new StreamJsonReaderState(stream, buffer, buffer.AsMemory(0, stream.Read(buffer)), default, []);
     }
 
-    static bool AdvanceJsonReader(ref StreamJsonReaderState state, out Utf8JsonReader reader)
+    static JsonNode ReadDocumentFromJsonReader(ref StreamJsonReaderState state, ref Utf8JsonReader reader)
+    {
+        var jsonBuffer = new MemoryStream();
+        void readHook(Memory<byte> buffer) => jsonBuffer.Write(buffer.Span);
+
+        jsonBuffer.WriteByte(
+            reader.TokenType switch
+            {
+                JsonTokenType.StartObject => (byte)'{',
+                JsonTokenType.StartArray => (byte)'[',
+                _ => throw new InvalidOperationException("Expected start of object or array"),
+            }
+        );
+
+        var depth = reader.CurrentDepth;
+        do
+        {
+            AdvanceJsonReader(ref state, ref reader, readHook);
+        } while (depth < reader.CurrentDepth);
+
+        jsonBuffer.Seek(0, SeekOrigin.Begin);
+        return JsonNode.Parse(jsonBuffer)!;
+    }
+
+    static bool AdvanceJsonReader(ref StreamJsonReaderState state, ref Utf8JsonReader reader, Action<Memory<byte>>? readHook = null)
     {
         var buffer = state.Buffer;
         reader = new(buffer.Span, false, state.JsonReaderState);
+        // Console.WriteLine($"[A] Length={buffer.Length} >>" + Encoding.UTF8.GetString(buffer.Span) + "<<");
         var read = reader.Read();
+        readHook?.Invoke(buffer[..(int)reader.BytesConsumed]);
         buffer = buffer[(int)reader.BytesConsumed..];
+        // Console.WriteLine($"[A] Consumed={reader.BytesConsumed} Remaining={buffer.Length}");
 
         if (!read)
         {
             buffer.CopyTo(state.BufferArray);
             buffer = state.BufferArray.AsMemory(0, buffer.Length + state.Stream.Read(state.BufferArray.AsSpan(buffer.Length)));
             reader = new(buffer.Span, false, reader.CurrentState);
+            // Console.WriteLine("Buffer");
+            // Console.WriteLine($"[B] Length={buffer.Length} >>" + Encoding.UTF8.GetString(buffer.Span) + "<<");
             if (!reader.Read())
             {
                 if (reader.CurrentDepth > 0) throw new InvalidDataException("Unable to parse JSON; not enough buffer space?");
                 return false;
             }
+            readHook?.Invoke(buffer[..(int)reader.BytesConsumed]);
             buffer = buffer[(int)reader.BytesConsumed..];
+            // Console.WriteLine($"[B] Consumed={reader.BytesConsumed} Remaining={buffer.Length}");
         }
 
         while (state.Path.Count > reader.CurrentDepth) state.Path.RemoveAt(state.Path.Count - 1);
@@ -126,8 +140,12 @@ public class WebPlatformTests
             if (state.Path.Count == reader.CurrentDepth) state.Path.RemoveAt(state.Path.Count - 1);
             state.Path.Add(reader.GetString() ?? "");
         }
+        // Console.WriteLine($"Read={read}  Line={GetUtf8JsonReaderLineNumber(ref reader)}  Depth={reader.CurrentDepth}  Path={string.Join(" / ", state.Path)}  Token={reader.TokenType}");
 
         state = state with { Buffer = buffer, JsonReaderState = reader.CurrentState };
         return true;
     }
+
+    // [System.Runtime.CompilerServices.UnsafeAccessor(System.Runtime.CompilerServices.UnsafeAccessorKind.Field, Name = "_lineNumber")]
+    // extern static ref long GetUtf8JsonReaderLineNumber(ref Utf8JsonReader @this);
 }
