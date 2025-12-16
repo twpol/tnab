@@ -55,6 +55,100 @@ public class WebPlatformTests
         }
     }
 
+    [Theory]
+    [MemberData(nameof(GetRefTests))]
+    public async ValueTask RefTests(RefTest test)
+    {
+        SKImage image1;
+        SKImage image2;
+        {
+            var network = new NetworkManager();
+            var navigable = new Navigable(network);
+            await navigable.Navigate(new Uri(test.File));
+            var layout = new BoxParser(navigable.ActiveDocument);
+            layout.Parse();
+            var renderer = new SkiaRenderer(layout.Root);
+            image1 = renderer.Render();
+        }
+        {
+            var network = new NetworkManager();
+            var navigable = new Navigable(network);
+            await navigable.Navigate(new Uri(test.ReferenceFile));
+            var layout = new BoxParser(navigable.ActiveDocument);
+            layout.Parse();
+            var renderer = new SkiaRenderer(layout.Root);
+            image2 = renderer.Render();
+        }
+        var diff = Compare.CalcDiff(SKBitmap.FromImage(image1), SKBitmap.FromImage(image2), new SKBitmap(image1.Info));
+        switch (test.Operator)
+        {
+            case RefTestOperator.Equal:
+                Assert.InRange(diff.PixelErrorPercentage, 0, 0);
+                break;
+            case RefTestOperator.NotEqual:
+                Assert.NotInRange(diff.PixelErrorPercentage, 0, 0);
+                break;
+            default:
+                throw new InvalidDataException($"Unknown reftest operator {test.Operator}");
+        }
+    }
+
+    public record RefTest(string File, string ReferenceFile, RefTestOperator Operator, JsonObject Properties);
+
+    public enum RefTestOperator
+    {
+        Equal,
+        NotEqual,
+    }
+
+    public static IEnumerable<TheoryDataRow<RefTest>> GetRefTests() => GetTests("reftest", GetRefTestsHandler);
+
+    static IEnumerable<TheoryDataRow<RefTest>> GetRefTestsHandler(string basePath, List<string> path, JsonNode json)
+    {
+        // Console.WriteLine();
+        // Console.WriteLine(basePath);
+        // Console.WriteLine(string.Join("/", path));
+        // Console.WriteLine(System.Text.Encoding.UTF8.GetString(JsonSerializer.SerializeToUtf8Bytes(json)));
+
+        var testCases = json as JsonArray ?? throw new InvalidDataException($"Invalid test data; expected array, got {json}");
+        if (testCases.Count < 2) throw new InvalidDataException($"Invalid test data; expected 2+ items, got {testCases.Count}");
+
+        var hash = (string?)json[0] ?? throw new InvalidDataException($"Invalid test data; expected string, got {json[0]}");
+
+        for (var i = 1; i < testCases.Count; i++)
+        {
+            var testCase = testCases[i] as JsonArray ?? throw new InvalidDataException($"Invalid test data; expected array, got {testCases[i]}");
+            if (testCase.Count != 3) throw new InvalidDataException($"Invalid test data; expected 3 items, got {testCase.Count}");
+            var testPath = (string?)testCase[0] ?? throw new InvalidDataException($"Invalid test data; expected string, got {testCase[0]}");
+            var comparisons = testCase[1] as JsonArray ?? throw new InvalidDataException($"Invalid test data; expected array, got {testCase[1]}");
+            var properties = testCase[2] as JsonObject ?? throw new InvalidDataException($"Invalid test data; expected object, got {testCase[2]}");
+
+            foreach (var comparison in comparisons)
+            {
+                var components = comparison as JsonArray ?? throw new InvalidDataException($"Invalid test data; expected array, got {comparison}");
+                if (components.Count != 2) throw new InvalidDataException($"Invalid test data; expected 2 items, got {components.Count}");
+
+                var referencePath = (string?)components[0] ?? throw new InvalidDataException($"Invalid test data; expected string, got {components[0]}");
+                var @operator = (string?)components[1] switch
+                {
+                    "==" => RefTestOperator.Equal,
+                    "!=" => RefTestOperator.NotEqual,
+                    _ => throw new InvalidDataException($"Invalid test data; expected '==' or '!=', got {comparison}"),
+                };
+
+                var test = new RefTest(Path.GetFullPath(testPath, basePath), referencePath[0] == '/' ? Path.GetFullPath(referencePath.Substring(1), basePath) : referencePath, @operator, properties);
+                var skip = new List<string>();
+                if (test.File.StartsWith("about:") || test.ReferenceFile.StartsWith("about:")) skip.Add("Skipped due to unsupported tests (about scheme)");
+                if (test.File.Contains('?') || test.ReferenceFile.Contains('?')) skip.Add("Skipped due to unsupported tests (query)");
+                if (test.File.Contains('#') || test.ReferenceFile.Contains('#')) skip.Add("Skipped due to unsupported tests (anchor)");
+                if (test.Properties.Count > 0) skip.Add("Skipped due to unsupported tests (key/value properties)");
+                yield return new TheoryDataRow<RefTest>(test)
+                    .WithSkip(skip.Count > 0 ? string.Join(", ", skip) : null);
+            }
+        }
+        yield break;
+    }
+
     static IEnumerable<T> GetTests<T>(string type, Func<string, List<string>, JsonNode, IEnumerable<T>> handler)
     {
         var basePath = Path.GetFullPath("../../../../tests/wpt");
