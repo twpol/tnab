@@ -22,6 +22,7 @@
   </ItemGroup>
 
   <ItemGroup>
+    <PackageReference Include="Codeuctivity.SkiaSharpCompare" Version="3.2.245" />
     <PackageReference Include="xunit.v3" Version="3.2.1" />
   </ItemGroup>
 
