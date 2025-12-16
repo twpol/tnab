@@ -1,5 +1,7 @@
 ﻿using System.Text.Json;
 using System.Text.Json.Nodes;
+using Codeuctivity.SkiaSharpCompare;
+using SkiaSharp;
 using TNAB.Browser;
 using TNAB.Layout;
 using TNAB.Network;
@@ -43,6 +45,117 @@ public class WebPlatformTests
             yield return new TheoryDataRow<Uri>(testUri)
                 .WithTrait("path", path)
                 .WithSkip(skip.Count > 0 ? string.Join(", ", skip) : null);
+        }
+    }
+
+    [Theory]
+    [MemberData(nameof(GetRefTests))]
+    public async ValueTask RefTests(string file, int index, Uri testUrl, Uri referenceUrl, RefTestRelation relation)
+    {
+        SKImage testImage;
+        SKImage referenceImage;
+        {
+            var network = new NetworkManager();
+            var navigable = new Navigable(network);
+            await navigable.Navigate(testUrl);
+            var layout = new BoxParser(navigable.ActiveDocument);
+            layout.Parse();
+            var renderer = new SkiaRenderer(layout.Root);
+            testImage = renderer.Render();
+        }
+        {
+            var network = new NetworkManager();
+            var navigable = new Navigable(network);
+            await navigable.Navigate(referenceUrl);
+            var layout = new BoxParser(navigable.ActiveDocument);
+            layout.Parse();
+            var renderer = new SkiaRenderer(layout.Root);
+            referenceImage = renderer.Render();
+        }
+
+        var testBitmap = SKBitmap.FromImage(testImage);
+        var referenceBitmap = SKBitmap.FromImage(referenceImage);
+        var differences = Compare.CalcDiff(testBitmap, referenceBitmap, new SKBitmap(testImage.Info));
+        var pass = relation switch
+        {
+            RefTestRelation.Equal => differences.PixelErrorCount == 0,
+            RefTestRelation.NotEqual => differences.PixelErrorCount != 0,
+            _ => throw new InvalidDataException($"Unknown reftest relation {relation}"),
+        };
+
+        // if (!pass)
+        // {
+        //     var resultPath = Path.GetFullPath(Path.Join("..", "..", "..", "..", "test-results", "wpt", "reftest", file));
+        //     Directory.CreateDirectory(resultPath);
+
+        //     var testStream = File.OpenWrite(Path.Join(resultPath, index + "-test.png"));
+        //     testBitmap.Encode(testStream, SKEncodedImageFormat.Png, 100);
+
+        //     var referenceStream = File.OpenWrite(Path.Join(resultPath, index + "-reference.png"));
+        //     referenceBitmap.Encode(referenceStream, SKEncodedImageFormat.Png, 100);
+
+        //     var differencesBitmap = Compare.CalcDiffMaskImage(testBitmap, referenceBitmap);
+        //     using var differencesStream = File.OpenWrite(Path.Join(resultPath, index + "-differences.png"));
+        //     differencesBitmap.Encode(differencesStream, SKEncodedImageFormat.Png, 100);
+        // }
+
+        Assert.True(pass);
+    }
+
+    // relation
+    public enum RefTestRelation
+    {
+        Equal,
+        NotEqual,
+    }
+
+    public static IEnumerable<TheoryDataRow<string, int, Uri, Uri, RefTestRelation>> GetRefTests() => GetTests("reftest", GetRefTestsHandler);
+
+    static IEnumerable<TheoryDataRow<string, int, Uri, Uri, RefTestRelation>> GetRefTestsHandler(string path, Uri testUri, JsonNode json)
+    {
+        // Console.WriteLine();
+        // Console.WriteLine(basePath);
+        // Console.WriteLine(string.Join("/", path));
+        // Console.WriteLine(System.Text.Encoding.UTF8.GetString(JsonSerializer.SerializeToUtf8Bytes(json)));
+
+        var testCases = json as JsonArray ?? throw new InvalidDataException($"Invalid test data; expected array, got {json}");
+        if (testCases.Count < 2) throw new InvalidDataException($"Invalid test data; expected 2+ items, got {testCases.Count}");
+
+        var hash = (string?)json[0] ?? throw new InvalidDataException($"Invalid test data; expected string, got {json[0]}");
+
+        for (var i = 1; i < testCases.Count; i++)
+        {
+            var testCase = testCases[i] as JsonArray ?? throw new InvalidDataException($"Invalid test data; expected array, got {testCases[i]}");
+            if (testCase.Count != 3) throw new InvalidDataException($"Invalid test data; expected 3 items, got {testCase.Count}");
+            var testPath = (string?)testCase[0] ?? throw new InvalidDataException($"Invalid test data; expected string, got {testCase[0]}");
+            var comparisons = testCase[1] as JsonArray ?? throw new InvalidDataException($"Invalid test data; expected array, got {testCase[1]}");
+            var properties = testCase[2] as JsonObject ?? throw new InvalidDataException($"Invalid test data; expected object, got {testCase[2]}");
+
+            foreach (var comparison in comparisons)
+            {
+                var components = comparison as JsonArray ?? throw new InvalidDataException($"Invalid test data; expected array, got {comparison}");
+                if (components.Count != 2) throw new InvalidDataException($"Invalid test data; expected 2 items, got {components.Count}");
+
+                var referencePath = (string?)components[0] ?? throw new InvalidDataException($"Invalid test data; expected string, got {components[0]}");
+                if (referencePath[0] == '/') referencePath = referencePath[1..];
+                var relation = (string?)components[1] switch
+                {
+                    "==" => RefTestRelation.Equal,
+                    "!=" => RefTestRelation.NotEqual,
+                    _ => throw new InvalidDataException($"Invalid test data; expected '==' or '!=', got {comparison}"),
+                };
+
+                var testUrl = new Uri(testUri, testPath);
+                var referenceUrl = new Uri(testUri, referencePath);
+                var skip = new List<string>();
+                if (testUrl.Scheme == "about" || referenceUrl.Scheme == "about") skip.Add("Skipped due to unsupported tests (about scheme)");
+                if (testUrl.Query.Length > 0 || referenceUrl.Query.Length > 0) skip.Add("Skipped due to unsupported tests (query)");
+                if (testUrl.Fragment.Length > 0 || referenceUrl.Fragment.Length > 0) skip.Add("Skipped due to unsupported tests (fragment)");
+                if (properties.Count > 0) skip.Add("Skipped due to unsupported tests (key/value properties)");
+                yield return new TheoryDataRow<string, int, Uri, Uri, RefTestRelation>(path, i, new Uri(testUri, testPath), new Uri(testUri, referencePath), relation)
+                    .WithTrait("path", path)
+                    .WithSkip(skip.Count > 0 ? string.Join(", ", skip) : null);
+            }
         }
     }
 
