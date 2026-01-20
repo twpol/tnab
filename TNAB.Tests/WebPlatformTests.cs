@@ -15,7 +15,6 @@ public class WebPlatformTests
     [MemberData(nameof(GetCrashTests))]
     public async ValueTask CrashTests(Uri testUri)
     {
-        Console.WriteLine($"CrashTests: testUri = {testUri}");
         var network = new NetworkManager();
         var navigable = new Navigable(network);
         await navigable.Navigate(testUri);
@@ -27,10 +26,8 @@ public class WebPlatformTests
 
     public static IEnumerable<TheoryDataRow<Uri>> GetCrashTests() => GetTests("crashtest", GetCrashTestsHandler);
 
-    static IEnumerable<TheoryDataRow<Uri>> GetCrashTestsHandler(string path, Uri testUri, JsonNode json)
+    static IEnumerable<TheoryDataRow<Uri>> GetCrashTestsHandler(Uri baseUri, string path, JsonNode json)
     {
-        Console.WriteLine($"GetCrashTestsHandler: path = {path}");
-        Console.WriteLine($"GetCrashTestsHandler: testUri = {testUri}");
         var testCases = json as JsonArray ?? throw new InvalidDataException($"Invalid test data; expected array, got {json}");
         if (testCases.Count < 2) throw new InvalidDataException($"Invalid test data; expected 2+ items, got {testCases.Count}");
 
@@ -43,30 +40,26 @@ public class WebPlatformTests
             if (testCase[0] != null) throw new InvalidDataException($"Invalid test data; expected null, got {testCase[0]}");
             var properties = testCase[1] as JsonObject ?? throw new InvalidDataException($"Invalid test data; expected object, got {testCase[1]}");
 
+            var testUri = new Uri(baseUri, path);
             var skip = new List<string>();
             if (properties.Count > 0) skip.Add("Skipped due to unsupported tests (key/value properties)");
+            skip.Add("TESTING");
             yield return new TheoryDataRow<Uri>(testUri)
-                .WithTrait("path", testUri + "?index=" + index)
+                .WithTrait("path", testUri.ToString())
                 .WithSkip(skip.Count > 0 ? string.Join(", ", skip) : null);
         }
     }
 
     [Theory]
     [MemberData(nameof(GetRefTests))]
-    public async ValueTask RefTests(string file, int index, Uri testUrl, Uri referenceUrl, RefTestRelation relation)
+    public async ValueTask RefTests(string path, int index, Uri testUri, Uri referenceUri, RefTestRelation relation)
     {
-        Console.WriteLine($"RefTests: file = {file}");
-        Console.WriteLine($"RefTests: index = {index}");
-        Console.WriteLine($"RefTests: testUrl = {testUrl}");
-        Console.WriteLine($"RefTests: referenceUrl = {referenceUrl}");
-        Console.WriteLine($"RefTests: relation = {relation}");
-
         SKImage testImage;
         SKImage referenceImage;
         {
             var network = new NetworkManager();
             var navigable = new Navigable(network);
-            await navigable.Navigate(testUrl);
+            await navigable.Navigate(testUri);
             var layout = new BoxParser(navigable.ActiveDocument);
             layout.Parse();
             var renderer = new SkiaRenderer(layout.Root);
@@ -75,7 +68,7 @@ public class WebPlatformTests
         {
             var network = new NetworkManager();
             var navigable = new Navigable(network);
-            await navigable.Navigate(referenceUrl);
+            await navigable.Navigate(referenceUri);
             var layout = new BoxParser(navigable.ActiveDocument);
             layout.Parse();
             var renderer = new SkiaRenderer(layout.Root);
@@ -85,30 +78,32 @@ public class WebPlatformTests
         var testBitmap = SKBitmap.FromImage(testImage);
         var referenceBitmap = SKBitmap.FromImage(referenceImage);
         var differences = Compare.CalcDiff(testBitmap, referenceBitmap, new SKBitmap(testImage.Info));
-        var pass = relation switch
+        try
         {
-            RefTestRelation.Equal => differences.PixelErrorCount == 0,
-            RefTestRelation.NotEqual => differences.PixelErrorCount != 0,
-            _ => throw new InvalidDataException($"Unknown reftest relation {relation}"),
-        };
+            switch (relation)
+            {
+                case RefTestRelation.Equal: Assert.Equal(0, differences.PixelErrorCount); break;
+                case RefTestRelation.NotEqual: Assert.NotEqual(0, differences.PixelErrorCount); break;
+                default: throw new InvalidDataException($"Unknown reftest relation {relation}");
+            }
+        }
+        catch (Xunit.Sdk.XunitException)
+        {
+            // var resultPath = Path.GetFullPath(Path.Combine("../../../../test-results/wpt/reftest", path));
+            // Directory.CreateDirectory(resultPath);
 
-        // if (!pass)
-        // {
-        //     var resultPath = Path.GetFullPath(Path.Join("..", "..", "..", "..", "test-results", "wpt", "reftest", file));
-        //     Directory.CreateDirectory(resultPath);
+            // var testStream = File.OpenWrite(Path.Join(resultPath, index + "-test.png"));
+            // testBitmap.Encode(testStream, SKEncodedImageFormat.Png, 100);
 
-        //     var testStream = File.OpenWrite(Path.Join(resultPath, index + "-test.png"));
-        //     testBitmap.Encode(testStream, SKEncodedImageFormat.Png, 100);
+            // var referenceStream = File.OpenWrite(Path.Join(resultPath, index + "-reference.png"));
+            // referenceBitmap.Encode(referenceStream, SKEncodedImageFormat.Png, 100);
 
-        //     var referenceStream = File.OpenWrite(Path.Join(resultPath, index + "-reference.png"));
-        //     referenceBitmap.Encode(referenceStream, SKEncodedImageFormat.Png, 100);
+            // var differencesBitmap = Compare.CalcDiffMaskImage(testBitmap, referenceBitmap);
+            // using var differencesStream = File.OpenWrite(Path.Join(resultPath, index + "-differences.png"));
+            // differencesBitmap.Encode(differencesStream, SKEncodedImageFormat.Png, 100);
 
-        //     var differencesBitmap = Compare.CalcDiffMaskImage(testBitmap, referenceBitmap);
-        //     using var differencesStream = File.OpenWrite(Path.Join(resultPath, index + "-differences.png"));
-        //     differencesBitmap.Encode(differencesStream, SKEncodedImageFormat.Png, 100);
-        // }
-
-        Assert.True(pass);
+            throw;
+        }
     }
 
     // relation
@@ -120,11 +115,8 @@ public class WebPlatformTests
 
     public static IEnumerable<TheoryDataRow<string, int, Uri, Uri, RefTestRelation>> GetRefTests() => GetTests("reftest", GetRefTestsHandler);
 
-    static IEnumerable<TheoryDataRow<string, int, Uri, Uri, RefTestRelation>> GetRefTestsHandler(string path, Uri testUri, JsonNode json)
+    static IEnumerable<TheoryDataRow<string, int, Uri, Uri, RefTestRelation>> GetRefTestsHandler(Uri baseUri, string path, JsonNode json)
     {
-        Console.WriteLine($"GetRefTestsHandler: path = {path}");
-        Console.WriteLine($"GetRefTestsHandler: testUri = {testUri}");
-
         var testCases = json as JsonArray ?? throw new InvalidDataException($"Invalid test data; expected array, got {json}");
         if (testCases.Count < 2) throw new InvalidDataException($"Invalid test data; expected 2+ items, got {testCases.Count}");
 
@@ -152,30 +144,26 @@ public class WebPlatformTests
                     _ => throw new InvalidDataException($"Invalid test data; expected '==' or '!=', got {comparison}"),
                 };
 
-                Console.WriteLine($"GetRefTestsHandler: testPath = {testPath}");
-                Console.WriteLine($"GetRefTestsHandler: referencePath = {referencePath}");
-                var testUrl = new Uri(testUri, testPath);
-                var referenceUrl = new Uri(testUri, referencePath);
+                var testUri = new Uri(baseUri, testPath);
+                var referenceUri = new Uri(baseUri, referencePath);
                 var skip = new List<string>();
-                if (testUrl.Scheme == "about" || referenceUrl.Scheme == "about") skip.Add("Skipped due to unsupported tests (about scheme)");
-                if (testUrl.Query.Length > 0 || referenceUrl.Query.Length > 0) skip.Add("Skipped due to unsupported tests (query)");
-                if (testUrl.Fragment.Length > 0 || referenceUrl.Fragment.Length > 0) skip.Add("Skipped due to unsupported tests (fragment)");
+                if (testUri.Scheme == "about" || referenceUri.Scheme == "about") skip.Add("Skipped due to unsupported tests (about scheme)");
+                if (testUri.Query.Length > 0 || referenceUri.Query.Length > 0) skip.Add("Skipped due to unsupported tests (query)");
+                if (testUri.Fragment.Length > 0 || referenceUri.Fragment.Length > 0) skip.Add("Skipped due to unsupported tests (fragment)");
                 if (properties.Count > 0) skip.Add("Skipped due to unsupported tests (key/value properties)");
-                yield return new TheoryDataRow<string, int, Uri, Uri, RefTestRelation>(path, index, testUrl, referenceUrl, relation)
-                    .WithTrait("path", testUri + "?index=" + index)
+                yield return new TheoryDataRow<string, int, Uri, Uri, RefTestRelation>(path, index, testUri, referenceUri, relation)
+                    .WithTrait("path", testUri.ToString())
+                    .WithTrait("path", referenceUri.ToString())
                     .WithSkip(skip.Count > 0 ? string.Join(", ", skip) : null);
             }
         }
     }
 
-    static IEnumerable<T> GetTests<T>(string type, Func<string, Uri, JsonNode, IEnumerable<T>> handler)
+    static IEnumerable<T> GetTests<T>(string type, Func<Uri, string, JsonNode, IEnumerable<T>> handler)
     {
         var root = Path.GetFullPath("../../../..");
         var rootUri = new Uri(root + "/");
         var baseUri = new Uri(root + "/tests/wpt/");
-        Console.WriteLine($"GetTests: root = {root}");
-        Console.WriteLine($"GetTests: rootUri = {rootUri}");
-        Console.WriteLine($"GetTests: baseUri = {baseUri}");
         using var stream = File.OpenRead(Path.Join(root, "tests", "wpt", "MANIFEST.json"));
         CreateJsonReader(stream, out var state);
         var reader = new Utf8JsonReader();
@@ -185,15 +173,11 @@ public class WebPlatformTests
             if (state.Path[0] != "items") continue;
             if (state.Path[1] != type) continue;
             if (reader.TokenType != JsonTokenType.StartArray) continue;
-            Console.WriteLine($"GetTests: state.Path = {state.Path}");
-            var uri = new Uri(baseUri, string.Join('/', state.Path.Skip(2)));
-            Console.WriteLine($"GetTests: uri = {uri}");
-            foreach (var test in handler(rootUri.MakeRelativeUri(uri).OriginalString, uri, ReadDocumentFromJsonReader(ref state, ref reader)))
+            foreach (var test in handler(baseUri, string.Join('/', state.Path.Skip(2)), ReadDocumentFromJsonReader(ref state, ref reader)))
             {
                 yield return test;
                 reader = new();
             }
-            break;
         }
     }
 
