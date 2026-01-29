@@ -15,9 +15,12 @@ public class Navigable(NetworkManager networkManager)
         OnDocumentLoading(new DocumentLoadingEventArgs(uri));
         var timer = Stopwatch.StartNew();
         var loading = 0;
+        OnFeatureUsed(new("http.methods.GET"));
         var response = await NetworkManager.Get(uri);
+        OnFeatureUsed(new($"http.status.{(int)response.StatusCode}"));
         var stream = response.Content.ReadAsStream();
         var htmlParser = new HtmlParser(uri, stream);
+        htmlParser.FeatureUsed += (sender, e) => OnFeatureUsed(new(e.Feature));
         htmlParser.StyleSheet += async (sender, e) =>
         {
             OnResourceLoading(new ResourceLoadingEventArgs(e.Uri));
@@ -28,6 +31,7 @@ public class Navigable(NetworkManager networkManager)
                 if (e.Uri == null && e.Node.Children.Count != 1) return;
                 var stream = e.Uri == null ? new MemoryStream(System.Text.Encoding.UTF8.GetBytes(e.Node.Children[0].Value ?? "")) : (await NetworkManager.Get(e.Uri)).Content.ReadAsStream();
                 var cssParser = new CssParser(e.Uri ?? uri, stream);
+                cssParser.FeatureUsed += (sender, e) => OnFeatureUsed(new(e.Feature));
                 cssParser.Parse();
                 e.Node.Children.Add(new MarkupStyleSheet(cssParser.Root));
             }
@@ -64,4 +68,8 @@ public class Navigable(NetworkManager networkManager)
     public record ResourceLoadedEventArgs(Uri? Uri, long DurationMS);
     public event EventHandler<ResourceLoadedEventArgs>? ResourceLoaded;
     protected virtual void OnResourceLoaded(ResourceLoadedEventArgs e) => ResourceLoaded?.Invoke(this, e);
+
+    public record FeatureUsedEventArgs(string Feature);
+    public event EventHandler<FeatureUsedEventArgs>? FeatureUsed;
+    protected virtual void OnFeatureUsed(FeatureUsedEventArgs e) => FeatureUsed?.Invoke(this, e);
 }
