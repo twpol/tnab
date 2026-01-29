@@ -25,6 +25,41 @@ public class HtmlParser
         "wbr",
     ];
 
+    public string[] GlobalAttributes =
+    [
+        // https://developer.mozilla.org/en-US/docs/Web/HTML/Reference/Global_attributes
+        // FIXME: Update list to match 2024-04-01
+        "accesskey",
+        "anchor",
+        "autocapitalize",
+        "autocorrect",
+        "autofocus",
+        "class",
+        "contenteditable",
+        "data_attributes",
+        "dir",
+        "draggable",
+        "enterkeyhint",
+        "exportparts",
+        "hidden",
+        "id",
+        "inert",
+        "inputmode",
+        "is",
+        "lang",
+        "nonce",
+        "part",
+        "popover",
+        "slot",
+        "spellcheck",
+        "style",
+        "tabindex",
+        "title",
+        "translate",
+        "virtualkeyboardpolicy",
+        "writingsuggestions",
+    ];
+
     public MarkupDocument Root { get; private set; }
 
     readonly Uri BaseUri;
@@ -58,6 +93,7 @@ public class HtmlParser
                     yield return text;
                     break;
                 case HtmlTokeniser.TokenType.TagOpen:
+                    if (!IsCustomElement(token.Value)) OnFeatureUsed(new($"html.elements.{token.Value}"));
                     var element = new MarkupElement(token.Value, [])
                     {
                         ParentNode = stack.Peek()
@@ -66,6 +102,7 @@ public class HtmlParser
                     stack.Push(element);
                     break;
                 case HtmlTokeniser.TokenType.TagOpenAttributeName:
+                    if (!IsCustomElement(stack.Peek().Name)) OnFeatureUsed(new(token.Value.StartsWith("data-") ? "html.global_attributes.data_attributes" : token.Value == "role" ? "html.aria_attributes.role" : token.Value.StartsWith("aria-") ? $"html.aria_attributes.{token.Value[5..]}" : GlobalAttributes.Contains(token.Value) ? $"html.global_attributes.{token.Value}" : $"html.elements.{stack.Peek().Name}.{token.Value}"));
                     attributeName = token.Value;
                     break;
                 case HtmlTokeniser.TokenType.TagOpenAttributeValue:
@@ -111,6 +148,12 @@ public class HtmlParser
     {
         foreach (var _ in GetNodes()) ;
     }
+
+    static bool IsCustomElement(string name) => name.Equals(name, StringComparison.InvariantCultureIgnoreCase) && name.Contains('-');
+
+    public record FeatureUsedEventArgs(string Feature);
+    public event EventHandler<FeatureUsedEventArgs>? FeatureUsed;
+    protected virtual void OnFeatureUsed(FeatureUsedEventArgs e) => FeatureUsed?.Invoke(this, e);
 
     public record StyleSheetEventArgs(MarkupNode Node, Uri? Uri);
     public event EventHandler<StyleSheetEventArgs>? StyleSheet;

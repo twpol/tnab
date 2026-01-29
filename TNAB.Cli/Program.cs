@@ -25,6 +25,7 @@ foreach (var arg in args)
         switch (action)
         {
             // Options...
+            case "track-features":
             case "verbose":
             case "verbose-cpu":
                 options[action] = "";
@@ -88,6 +89,7 @@ if (action == "")
     Console.WriteLine("Options:");
     Console.WriteLine("  /device-pixel-ratio <RATIO>  Set the device pixel ratio [default: 1.0]");
     Console.WriteLine("  /screenshot <PATH>    Save a screenshot to the specified path");
+    Console.WriteLine("  /track-features       Tracks which web features are used");
     Console.WriteLine("  /verbose              Enable verbose logging");
     Console.WriteLine("  /verbose-cpu          Enable verbose logging of CPU usage");
     Console.WriteLine("  /viewport <WxH>       Set the viewport size [default: 800x600]");
@@ -201,9 +203,15 @@ async Task CrashTest(string url)
 
 async Task LoadDocument(string url, Dictionary<string, string> options)
 {
+    var trackFeatures = options.ContainsKey("track-features");
+    var features = new HashSet<string>();
     var verbose = options.ContainsKey("verbose");
     var network = new NetworkManager();
     var navigable = new Navigable(network);
+    if (trackFeatures)
+    {
+        navigable.FeatureUsed += (sender, e) => features.Add(e.Feature);
+    }
     if (verbose)
     {
         Console.WriteLine($"Date and time         Delta (ms)  Operation      Duration (ms)  Arguments");
@@ -229,6 +237,15 @@ async Task LoadDocument(string url, Dictionary<string, string> options)
     var renderer = new SkiaRenderer(layout.Root);
     var image = renderer.Render();
     if (verbose) Log("Render complete");
+
+    if (trackFeatures)
+    {
+        Console.WriteLine("Web features used:");
+        foreach (var feature in features.Order())
+        {
+            Console.WriteLine($"- {feature}");
+        }
+    }
 
     if (options.TryGetValue("screenshot", out string? screenshot))
     {
