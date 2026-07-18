@@ -487,3 +487,4 @@ $RECYCLE.BIN/
 /tests/bcd
 /tests/html5lib-tests
 /tests/wpt
+*.lscache
