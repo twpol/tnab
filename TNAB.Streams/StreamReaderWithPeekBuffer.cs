@@ -51,10 +51,17 @@ public class StreamReaderWithPeekBuffer(Stream stream)
 
     public bool EndOfStream { get => BufferPosition >= BufferLength && StreamReaderEndOfStream; }
 
-    public char Peek()
+    public ReadOnlySpan<char> PeekLength(int length)
     {
-        if (!EnsureBuffer(1)) throw new InvalidOperationException("End of stream");
-        return Buffer[BufferPosition];
+        return Buffer.AsSpan(BufferPosition, Math.Min(BufferLength - BufferPosition, length));
+    }
+
+    public char Peek() => Peek(0);
+
+    public char Peek(int offset)
+    {
+        if (!EnsureBuffer(1 + offset)) throw new InvalidOperationException("End of stream");
+        return Buffer[BufferPosition + offset];
     }
 
     public char Read()
