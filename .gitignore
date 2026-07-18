@@ -484,5 +484,6 @@ $RECYCLE.BIN/
 *.swp
 
 ### Custom ignores
+/tests/bcd
 /tests/html5lib-tests
 /tests/wpt
